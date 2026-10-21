@@ -48,9 +48,17 @@ GRUPO = _cfg.get("GRUPO") or _cfg.get("MINIO_BUCKET") or "local"
 VENV = _cfg.get("PIPELINE_VENV") or f"/tmp/venv_{GRUPO}"
 PY, DBT = f"{VENV}/bin/python", f"{VENV}/bin/dbt"
 
-# Entrar al repo, exportar el .env del grupo y el venv a usar.
+# Artefactos de cómputo de dbt (archivo DuckDB, target/, logs/) en /tmp del worker.
+# Airflow corre con otro usuario que Jupyter y no puede escribir en la carpeta del repo.
+# No hace falta que persistan: `dbt build` reconstruye silver/gold enteras desde bronze en
+# cada corrida; el estado durable vive en bronze (Delta/MinIO) y en gold (PostgreSQL).
+TRABAJO = f"/tmp/dbt_{GRUPO}"
+
+# Entrar al repo, exportar el .env del grupo, el venv y dónde escribe dbt.
 _prep = (f'cd "{CURSO}" && set -a && if [ -f ./.env ]; then . ./.env; fi && set +a '
-         f'&& export CURSO_DIR="{CURSO}" PIPELINE_VENV="{VENV}" GRUPO="{GRUPO}"')
+         f'&& mkdir -p "{TRABAJO}" '
+         f'&& export CURSO_DIR="{CURSO}" PIPELINE_VENV="{VENV}" GRUPO="{GRUPO}" '
+         f'DUCKDB_PATH="{TRABAJO}/warehouse.duckdb" DBT_TARGET_PATH="{TRABAJO}/target" DBT_LOG_PATH="{TRABAJO}/logs"')
 
 # Intervalo de la corrida: viene del contexto. Si se dispara con config {inicio, fin}, manda la config.
 INICIO = "{{ dag_run.conf.get('inicio') or (data_interval_start | ds) }}"
