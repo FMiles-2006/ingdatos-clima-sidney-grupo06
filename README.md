@@ -1,0 +1,89 @@
+# Clima de Sídney — pipeline de ingeniería de datos (grupo06)
+
+Proyecto integrador de **Ingeniería de Datos** · Licenciatura en Ciencia de Datos · UCA Rosario · 2026.
+
+Pipeline completo y automático que todos los días trae el clima diario de Sídney (Australia) desde
+**Open-Meteo**, lo guarda crudo en un **lake** (Delta Lake sobre MinIO), lo limpia y agrega con
+**dbt + DuckDB**, lo publica en **PostgreSQL** y lo muestra en un tablero de **Metabase**,
+orquestado por **Airflow** y verificado por **CI** en cada cambio.
+
+```
+ Open-Meteo                    MinIO (s3://grupo06)        dbt + DuckDB                     PostgreSQL           Metabase
+ ┌───────────────┐  ingesta   ┌──────────────────┐  dbt   ┌───────────────────────────┐ pub ┌───────────────┐   ┌──────────┐
+ │ Archive ERA5  │──────────► │ bronze           │──────► │ silver  stg_clima_diario  │───► │ grupo06.      │──►│ tablero  │
+ │ (≤ 2025-12-31)│ watermark  │ clima_sidney     │ build  │         stg_codigos_clima │     │ fct_clima_    │   │ 4 gráf.  │
+ │ Hist.Forecast │ + MERGE    │ (Delta, crudo,   │ +tests │ gold    fct_clima_mensual │     │  mensual      │   └──────────┘
+ │ (≥ 2026-01-01)│            │  versionado)     │        │         feat_clima_diario │     │ feat_clima_   │
+ └───────────────┘            └──────────────────┘        └───────────────────────────┘     │  diario       │
+                                                                                             └───────────────┘
+        └──────────────── Airflow: preparar_entorno ► extraer_bronze ► dbt_build ► publicar_gold (06:00 ART) ──────┘
+```
+
+## Dominio y fuentes
+
+- **Qué:** variables diarias del clima en Sídney (−33.78, 151.23), día local `Australia/Sydney`, desde el **2022-01-01**.
+- **Dos APIs de Open-Meteo** (sin clave, licencia CC BY 4.0):
+  | Rango | API | Motivo |
+  |---|---|---|
+  | 2022-01-01 → 2025-12-31 | [Archive API](https://open-meteo.com/en/docs/historical-weather-api) (reanálisis ERA5) | histórico de mejor calidad |
+  | 2026-01-01 → ayer | [Historical Forecast API](https://open-meteo.com/en/docs/historical-forecast-api) | tiene el día anterior completo; ERA5 llega con días de demora |
+- **No se usa ningún CSV**: todo sale de la API y el **watermark** completa lo que falta en cada corrida.
+
+## Estructura
+
+```
+.
+├── dags/pipeline_grupo06.py      # DAG (E3)
+├── scripts/
+│   ├── ingesta.py                # API -> bronze: watermark, errores, append/MERGE (E1)
+│   ├── publicar_gold.py          # gold DuckDB -> PostgreSQL, idempotente (E4)
+│   └── preparar_entorno.sh       # venv propio del grupo dentro del Airflow compartido
+├── dbt/                          # silver + gold + features + tests + docs (E2/E4)
+├── ci/                           # tests de CI + bronze de muestra
+├── .github/workflows/ci.yml      # integración continua (E3)
+├── notebooks/NB00..NB06          # notebooks de las prácticas, adaptados a Sídney
+├── docs/                         # README de cada entrega, governance, tablero, defensa
+├── entorno.py                    # configuración única (servidor de la cátedra o Docker local)
+├── .airflowignore                # Airflow solo parsea dags/
+└── .env.example                  # plantilla de credenciales (.env NO se versiona)
+```
+
+## Documentación por entrega
+
+| Entrega | Documento |
+|---|---|
+| E1 · Ingesta idempotente → bronze | [docs/E1_ingesta.md](docs/E1_ingesta.md) |
+| E2 · dbt silver/gold + calidad | [docs/E2_dbt.md](docs/E2_dbt.md) |
+| E3 · Airflow + CI | [docs/E3_airflow_ci.md](docs/E3_airflow_ci.md) |
+| E4 · Serving, features, tablero | [docs/E4_serving.md](docs/E4_serving.md) · [docs/tablero_metabase.md](docs/tablero_metabase.md) |
+| Governance del dataset | [docs/governance.md](docs/governance.md) |
+| Defensa | [docs/defensa.md](docs/defensa.md) |
+
+## Puesta en marcha en el servidor de la cátedra (lo que se usa en la defensa)
+
+El Airflow compartido **solo monta `~/work/dags`** de cada grupo. Por eso el repo se clona **dentro** de esa carpeta.
+
+1. Abrir https://jupyter.nexoacademia.org (usuario `grupo06`).
+2. Subir `notebooks/NB00_desplegar_en_servidor.ipynb` (o copiar su primera celda) y ejecutarlo:
+   clona/actualiza el repo en `~/work/dags` y genera el `.env` desde las variables de JupyterHub.
+3. Abrir `~/work/dags/notebooks/` y correr NB02 → NB06 en orden (primera carga, dbt, publicación).
+4. En https://airflow.nexoacademia.org activar el DAG **`pipeline_grupo06`**.
+5. En https://metabase.nexoacademia.org rehacer el tablero según [docs/tablero_metabase.md](docs/tablero_metabase.md).
+
+Actualizar después de un cambio en GitHub: volver a ejecutar NB00 (hace `git pull`).
+
+## Puesta en marcha local (Docker de la cátedra)
+
+```bash
+cp .env.example .env
+make up                                  # minio, postgres, airflow, metabase
+make work                                # shell en el contenedor de trabajo
+python -m scripts.ingesta                # 1ª corrida: histórico 2022 -> ayer
+cd dbt && dbt build --profiles-dir .     # silver + gold + tests
+cd .. && python -m scripts.publicar_gold # gold -> PostgreSQL
+```
+
+## Equipo
+
+grupo06 — completar con los nombres de los integrantes y quién es responsable de cada parte
+(ver la sección *Responsable* en [docs/governance.md](docs/governance.md)).
