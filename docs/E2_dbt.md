@@ -45,7 +45,7 @@ apartó del promedio de ese mismo mes en 2022-2025?*
 
 Un registro por mes (58 meses frente a 1.754 días de silver). Columnas en lenguaje de negocio:
 `temperatura_media_c`, `anomalia_temperatura_c`, `lluvia_total_mm` frente a `lluvia_referencia_mm`, `dias_con_lluvia`,
-`dias_de_calor_30c`, `mes_completo`, `fuente_del_dato`, etc. (todas descriptas en `models/gold/schema.yml`).
+`dias_de_calor_30c`, `mes_completo`, `fuente_del_dato`, etc. (todas descriptas en `models/marts/schema.yml`).
 
 ## Tests
 

@@ -17,7 +17,7 @@ padres = {k: v for k, v in m["parent_map"].items() if k.startswith(("model.", "s
 n_tests = sum(1 for k in m["parent_map"] if k.startswith("test."))
 
 ESTILO = {"source": ("#2e7d32", "bronze · Delta"), "seed": ("#6a1b9a", "seed"),
-          "silver": ("#1565c0", "silver"), "gold": ("#ef6c00", "gold")}
+          "silver": ("#1565c0", "staging · silver"), "gold": ("#ef6c00", "marts · gold")}
 
 
 def tipo(nodo):
@@ -26,7 +26,7 @@ def tipo(nodo):
     if nodo.startswith("seed."):
         return "seed"
     capa = m["nodes"][nodo]["fqn"][1] if nodo in m["nodes"] else ""
-    return "gold" if capa == "gold" else "silver"
+    return "gold" if capa in ("marts", "gold") else "silver"
 
 
 def etiqueta(nodo):

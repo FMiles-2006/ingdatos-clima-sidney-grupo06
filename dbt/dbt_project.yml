@@ -12,14 +12,16 @@ clean-targets: ["target", "dbt_packages"]
 
 models:
   clima_sidney:
-    silver:
-      # Silver como TABLA (no vista), a contramano de la regla general del curso.
+    # staging = capa SILVER (limpieza, tipos, nombres consistentes; un registro por día)
+    # marts   = capa GOLD (modelos finales de consumo: hechos mensuales y features)
+    staging:
+      # Staging como TABLA (no vista), a contramano de la regla general del curso.
       # Motivo: bronze entra a DuckDB por el plugin 'delta' (lee la tabla Delta con la
       # librería deltalake al momento del build). Una vista sobre esa fuente quedaría
       # apuntando a algo que no existe fuera de la sesión de dbt, y publicar_gold.py /
       # los notebooks no podrían leerla. Son ~1.800 filas: materializarla cuesta nada.
       +materialized: table
-    gold:
+    marts:
       +materialized: table
 
 seeds:
