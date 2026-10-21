@@ -44,22 +44,30 @@ dbt reconstruye las tablas y la publicación reemplaza en una transacción. Sin 
 La tarea de extracción **recibe su intervalo del contexto de la corrida** (`data_interval_start` / `data_interval_end`),
 nunca del reloj. Una corrida con fecha lógica del 10/03 procesa el 10/03 aunque se ejecute en octubre.
 
-**Opción A — días puntuales, desde la UI** (lo que se muestra en la demo):
+**Opción A — un rango, desde la UI (la que usamos en la demo):**
 1. En `pipeline_grupo06`, botón ▶ → **Trigger DAG w/ config**.
-2. En **Logical date** elegir una fecha pasada, p. ej. `2026-03-10 06:00`.
-3. **Trigger**. En el log de `extraer_bronze` se ve
-   `intervalo pedido: [2026-03-10, 2026-03-11) | a extraer: 2026-03-10 -> 2026-03-10` y `Escritas 1 filas ... (merge)`.
-   Las filas totales de bronze no cambian (MERGE), y en el historial de Delta aparece una versión nueva (NB03).
+2. En la configuración (JSON) poner el período a reprocesar (`fin` es exclusivo):
+   ```json
+   {"inicio": "2026-02-01", "fin": "2026-02-08"}
+   ```
+3. **Trigger**. En el log de `extraer_bronze`:
+   `intervalo pedido: [2026-02-01, 2026-02-08) | a extraer: 2026-02-01 -> 2026-02-07` → `Escritas 7 filas ... (merge)`.
+   Las filas de bronze no cambian (MERGE), aparece una versión nueva en el historial de Delta (NB03), y dbt + publicación corren después.
+   *(Verificado en el servidor el 21/10/2026.)*
 
-**Opción B — un rango en una sola corrida**: el mismo botón, con esta config:
-```json
-{"inicio": "2026-03-01", "fin": "2026-04-01"}
-```
-**Opción C — CLI** (si se tiene acceso al scheduler): `airflow dags backfill pipeline_grupo06 -s 2026-03-01 -e 2026-03-07`.
+**Opción B — por fecha lógica:** el mismo botón, eligiendo **Logical date** en el pasado y sin config.
+Ojo con un detalle de Airflow 2.9: en una corrida **manual**, la fecha lógica es el **fin** del intervalo
+(`Logical date 2026-03-10 06:00` → intervalo `[2026-03-09, 2026-03-10)` → procesa el **9 de marzo**); en las corridas
+**programadas** la fecha lógica es el inicio. En los dos casos la tarea procesa lo que dice el intervalo de la corrida,
+nunca "hoy". *(Verificado: `manual__2026-03-10T09:00` escribió solo el 2026-03-09.)*
+
+**Opción C — Clear:** en la vista *Grid*, seleccionar corridas programadas ya existentes → **Clear**: se re-ejecutan con su intervalo original.
+
+**Opción D — CLI** (si se tiene acceso al scheduler): `airflow dags backfill pipeline_grupo06 -s 2026-03-01 -e 2026-03-07`.
 
 **¿Qué pasaría si quisiéramos backfillear dos años?** Con corridas diarias serían ~730 corridas × 4 tareas (≈ 2.900
 tareas en un Airflow compartido), 730 pedidos a la API y 730 `dbt build` completos, uno por corrida (los modelos no son
-incrementales). Lo razonable es la opción B, por año: Open-Meteo devuelve un año en un solo pedido, la ingesta ya parte
+incrementales). Lo razonable es la opción A, por año: Open-Meteo devuelve un año en un solo pedido, la ingesta ya parte
 por año, y dbt corre una sola vez al final.
 
 ## Integración continua

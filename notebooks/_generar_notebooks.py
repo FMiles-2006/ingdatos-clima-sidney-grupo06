@@ -316,14 +316,14 @@ y la ingesta procesa el **10/03 de Sídney**, aunque la ejecutemos hoy. Probamos
 r = subprocess.run("python -m scripts.ingesta --inicio 2026-03-10 --fin 2026-03-11", shell=True, cwd=RAIZ, capture_output=True, text=True)
 print(r.stdout, r.stderr[-1500:])'''),
     md("""## 3. Backfill (cómo dispararlo)
-**Un día o pocos días** — en la UI de Airflow: *Trigger DAG w/ config* (▶ → *Trigger DAG w/ config*) → elegir **Logical date** en el pasado → Trigger.
-Cada corrida reprocesa exactamente su intervalo (MERGE: no duplica).
-
-**Un rango largo en una sola corrida** — mismo botón, con config:
+**Un rango, en una sola corrida** — en la UI de Airflow: ▶ → *Trigger DAG w/ config*, con config
 ```json
 {"inicio": "2026-03-01", "fin": "2026-04-01"}
 ```
-La ingesta pide el rango completo a la API (un pedido por año), en vez de 31 corridas.
+La ingesta pide ese rango a la API (un pedido por año) y hace MERGE: no duplica.
+
+**Por fecha lógica** — mismo botón, eligiendo *Logical date* en el pasado. En una corrida **manual** de Airflow 2.9 la fecha
+lógica es el **fin** del intervalo: `2026-03-10 06:00` procesa el **9/03**. En las programadas es el inicio.
 
 **¿Y backfillear dos años?** Con corridas diarias serían ~730 corridas × 4 tareas (≈3000 tareas en un Airflow compartido) y 730 pedidos a la API.
 Lo correcto es **una corrida con rango** (o pocas, por año): Open-Meteo acepta rangos largos y nuestro `dbt build` es completo, no incremental, así que basta con correrlo una vez al final.
