@@ -39,9 +39,10 @@ solo los días que faltan (watermark).
 - **Gold** (dbt → PostgreSQL `warehouse.grupo06`): `fct_clima_mensual` (un registro por mes, con anomalías contra 2022-2025)
   y `feat_clima_diario` (indicadores por día). Es lo que consulta el tablero de Metabase.
 
-**Linaje** (generado por `dbt docs generate`, no dibujado a mano):
+**Linaje** (no dibujado a mano: sale del `manifest.json` que genera dbt, con `python docs/generar_linaje.py`;
+el grafo interactivo está en `dbt docs generate` → `dbt/target/index.html`, pestaña *Lineage*):
 
-![Linaje generado por dbt](capturas/linaje_dbt.png)
+![Linaje generado desde el manifest de dbt](capturas/linaje_dbt.png)
 
 ## 3 · Diccionario de datos
 
