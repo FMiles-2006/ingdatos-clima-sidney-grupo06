@@ -1,0 +1,17 @@
+# Credenciales: NUNCA al repositorio
+.env
+# dbt
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+logs/
+*.duckdb
+*.duckdb.wal
+# python / jupyter
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.venv/
+# CI y respaldos locales
+ci/bronze_delta/
+_respaldo*/

@@ -1,0 +1,12 @@
+# Contenedor de trabajo para ejecutar los notebooks de las clases prácticas
+# y comandos dbt de forma interactiva, sin instalar nada en la máquina del alumno.
+#
+# Uso:
+#   docker compose -f docker-compose.work.yml run --rm work bash
+#   # dentro:  jupyter lab --ip=0.0.0.0 --allow-root --no-browser
+FROM python:3.11-slim
+WORKDIR /work
+COPY docker/requirements.work.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+EXPOSE 8888
+CMD ["bash"]

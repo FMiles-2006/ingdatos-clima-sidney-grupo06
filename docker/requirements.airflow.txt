@@ -1,0 +1,9 @@
+# Dependencias del stack de datos usadas por los DAGs y por dbt.
+# Las versiones se resuelven con los constraints oficiales de Airflow 2.9.3.
+duckdb==1.0.0
+deltalake==0.18.2
+dbt-duckdb==1.8.1
+boto3
+pandas
+requests
+pyarrow

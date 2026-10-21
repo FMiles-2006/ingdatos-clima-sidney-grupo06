@@ -1,0 +1,11 @@
+# Imagen de Airflow con las dependencias del stack de la cátedra.
+# Base: imagen oficial de Airflow. Se agregan las librerías Python que usan
+# los DAGs y dbt para trabajar contra el lake (MinIO/S3), Delta y DuckDB.
+FROM apache/airflow:2.9.3-python3.11
+
+USER airflow
+
+# Constraints oficiales de Airflow para no romper el árbol de dependencias.
+COPY docker/requirements.airflow.txt /requirements.txt
+RUN pip install --no-cache-dir -r /requirements.txt \
+    --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.9.3/constraints-3.11.txt"

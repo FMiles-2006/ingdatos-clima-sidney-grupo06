@@ -1,0 +1,10 @@
+# Dependencias del pipeline (venv aislado de grupo06 dentro de Airflow, y Docker local).
+# Versiones alineadas con las del Jupyter del servidor de la cátedra.
+deltalake==1.6.6
+duckdb==1.5.5
+dbt-duckdb==1.10.1
+pandas==2.3.3
+pyarrow==21.0.0
+requests==2.32.5
+SQLAlchemy==2.0.43
+psycopg2-binary==2.9.10

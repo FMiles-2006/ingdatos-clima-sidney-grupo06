@@ -1,0 +1,24 @@
+# Contenedor de trabajo para notebooks y dbt interactivo.
+# Se conecta a la misma red del stack principal (ingdatos-lcd) para poder
+# alcanzar a minio y postgres por nombre de servicio.
+name: ingdatos-lcd
+
+services:
+  work:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.work
+    environment:
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      AWS_ENDPOINT_URL: http://minio:9000
+      AWS_ALLOW_HTTP: 'true'
+    volumes:
+      - ./notebooks:/work/notebooks
+      - ./dbt:/work/dbt
+      - ./seed:/work/seed
+      - ./scripts:/work/scripts
+    ports:
+      - "8888:8888"
+    networks:
+      - default
