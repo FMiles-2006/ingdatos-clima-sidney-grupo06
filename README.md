@@ -83,6 +83,19 @@ cd dbt && dbt build --profiles-dir .     # silver + gold + tests
 cd .. && python -m scripts.publicar_gold # gold -> PostgreSQL
 ```
 
+## Estado (verificado en el servidor de la cátedra el 21/10/2026)
+
+| Parte | Estado |
+|---|---|
+| Ingesta (E1) | ✅ 1.754 días en bronze (2022-01-01 → 2026-10-20); 2ª corrida sin pedidos a la API |
+| dbt (E2) | ✅ `dbt build`: 1 seed, 4 modelos, 34 tests en verde sobre la tabla Delta real |
+| Airflow (E3) | ✅ `pipeline_grupo06` en verde de punta a punta; backfill por rango y por fecha lógica probado |
+| CI (E3) | ✅ 3 jobs en verde; `main` protegida; PR #1 de demostración en rojo y bloqueado |
+| Gold en PostgreSQL (E4) | ✅ `grupo06.fct_clima_mensual` (58 meses) y `grupo06.feat_clima_diario`; publicación repetible |
+| Notebooks NB01-NB06 | ✅ ejecutados de punta a punta en el servidor |
+| Tablero Metabase (E4) | ⏳ **la base `warehouse` no está conectada en Metabase para grupo06**; agregar la conexión requiere un administrador (pedírselo a la cátedra). Las preguntas están definidas en [docs/tablero_metabase.md](docs/tablero_metabase.md) |
+| Governance | ✅ 6 secciones; falta confirmar el **responsable** (nombre y apellido) |
+
 ## Equipo
 
 grupo06 — completar con los nombres de los integrantes y quién es responsable de cada parte

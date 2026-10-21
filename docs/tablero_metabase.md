@@ -4,6 +4,10 @@ Metabase **no se versiona**: este archivo y las capturas de `docs/capturas/` son
 en el servidor (https://metabase.nexoacademia.org).
 
 **Conexión:** base de datos PostgreSQL de la cátedra, base `warehouse`, schema **`grupo06`**.
+
+> **Pendiente (21/10/2026):** el usuario `grupo06` de Metabase solo ve la *Sample Database*. Agregar una base de datos en
+> Metabase requiere permisos de administrador, así que hay que pedirle a la cátedra que conecte `warehouse` (host `postgres`,
+> puerto 5432, usuario `grupo06`, schema `grupo06`) o que habilite esa conexión para el grupo.
 Tablas: `fct_clima_mensual`, `feat_clima_diario`. Filtro común sugerido: `mes_completo = verdadero` para totales.
 
 **Decisión que apoya el tablero:** ¿conviene planificar actividades al aire libre en Sídney en un mes dado? Por ejemplo,
