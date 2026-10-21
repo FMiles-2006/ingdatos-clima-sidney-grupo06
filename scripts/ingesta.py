@@ -27,6 +27,13 @@ ESCRITURA:
   * hay fechas ya cargadas        -> MERGE por fecha (upsert: backfill/reproceso)
   En ambos casos, reejecutar no duplica.
 
+ESTRUCTURA (una función por responsabilidad, en el orden en que corren):
+    cargar_configuracion -> extraer_datos -> transformar_datos -> guardar_bronze
+    ingerir_incremental() las encadena; es lo que ejecuta Airflow.
+
+CÓDIGOS DE SALIDA: 0 ok · 1 falla transitoria (reintentable) · 2 falla permanente ·
+3 configuración inválida (falta una variable del .env).
+
 Uso:
     python -m scripts.ingesta                                   # manual: completa hasta ayer
     python -m scripts.ingesta --inicio 2026-03-01 --fin 2026-03-08   # reprocesa una semana
@@ -89,9 +96,18 @@ class ErrorPermanente(RuntimeError):
     """Pedido inválido (4xx) o respuesta con forma inesperada. Reintentar NO lo resuelve."""
 
 
+class ErrorConfiguracion(RuntimeError):
+    """Falta una variable obligatoria o tiene un valor inválido. Hay que corregir el .env."""
+
+
 # ---------------------------------------------------------------------------
-# 1. Watermark
+# 1. Configuración y watermark
 # ---------------------------------------------------------------------------
+# Variables obligatorias cuando bronze vive en MinIO/S3. Se leen del entorno (que
+# entorno.py completa con el .env del grupo); NUNCA se escriben en el código.
+VARIABLES_S3 = ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_ENDPOINT_URL"]
+
+
 def leer_watermark() -> date | None:
     """Máxima fecha ya cargada en bronze, o None si la tabla todavía no existe.
 
@@ -109,8 +125,41 @@ def leer_watermark() -> date | None:
     return date.fromisoformat(max(fechas.column("fecha").to_pylist()))
 
 
+def cargar_configuracion(inicio: date | None = None, fin: date | None = None) -> dict:
+    """Lee y valida la configuración, y decide QUÉ rango pedir a la API.
+
+    * Verifica las variables obligatorias (sin mostrar sus valores): si falta una,
+      falla con un mensaje claro en vez de usar un valor por defecto en silencio.
+    * Lee el watermark y calcula el rango incremental:
+          desde = min(watermark + 1, inicio)   # reproceso si el intervalo ya estaba cargado
+          hasta = fin - 1 día                  # el intervalo de Airflow es [inicio, fin)
+    """
+    if not BRONZE:
+        raise ErrorConfiguracion("No está definido el destino bronze (BRONZE_PATH o MINIO_BUCKET).")
+    if BRONZE.startswith("s3://"):
+        faltan = [v for v in VARIABLES_S3 if not os.environ.get(v)]
+        if faltan:
+            raise ErrorConfiguracion(
+                f"Faltan variables obligatorias en el .env o el entorno: {', '.join(faltan)}. "
+                "En el servidor se generan con notebooks/NB00 (ver README_GRUPO.md).")
+
+    fin = fin or date.today()                       # solo en corridas manuales; Airflow siempre pasa --fin
+    if inicio is not None and inicio >= fin:
+        raise ErrorConfiguracion(f"Intervalo vacío o invertido: inicio={inicio} fin={fin}")
+    hasta = fin - timedelta(days=1)
+    wm = leer_watermark()
+    desde = FECHA_INICIO if wm is None else wm + timedelta(days=1)
+    if inicio is not None:
+        desde = max(FECHA_INICIO, min(desde, inicio))
+    config = {"bronze": BRONZE, "watermark": wm, "inicio": inicio, "fin": fin,
+              "desde": desde, "hasta": hasta}
+    log.info("Destino bronze: %s | watermark: %s | intervalo pedido: [%s, %s) | a extraer: %s -> %s",
+             BRONZE, wm, inicio, fin, desde, hasta)
+    return config
+
+
 # ---------------------------------------------------------------------------
-# 2. Extracción (con manejo de errores)
+# 2. Extracción (llamada a la API + validación de la respuesta)
 # ---------------------------------------------------------------------------
 def _pedir(url: str, params: dict) -> dict:
     """GET con reintentos SOLO para fallas transitorias. Verifica el estado antes de parsear."""
@@ -136,8 +185,8 @@ def _pedir(url: str, params: dict) -> dict:
     raise ErrorTransitorio(f"{url} sigue fallando tras {REINTENTOS} intentos: {causa}")
 
 
-def _validar(js: dict, desde: date, hasta: date, fuente: str) -> pd.DataFrame:
-    """Convierte la respuesta en DataFrame verificando que tenga la forma esperada."""
+def _validar_respuesta(js: dict, desde: date, hasta: date) -> None:
+    """Verifica que la respuesta tenga la forma esperada. Si no, ErrorPermanente."""
     if js.get("error"):
         raise ErrorPermanente(f"La API informó un error: {js.get('reason')}")
     diario = js.get("daily")
@@ -149,31 +198,25 @@ def _validar(js: dict, desde: date, hasta: date, fuente: str) -> pd.DataFrame:
     largos = {k: len(v) for k, v in diario.items()}
     if len(set(largos.values())) != 1:
         raise ErrorPermanente(f"Columnas de distinto largo: {largos}")
+    if largos["time"] == 0:
+        raise ErrorPermanente(f"La API devolvió una respuesta vacía para {desde} -> {hasta}")
     unidad = js.get("daily_units", {}).get("temperature_2m_max")
     if unidad != "°C":
         raise ErrorPermanente(f"Unidad de temperatura inesperada: {unidad!r}")
-
-    df = pd.DataFrame(diario).rename(columns={"time": "fecha"})
-    fechas = pd.to_datetime(df["fecha"], format="%Y-%m-%d", errors="coerce")
+    fechas = pd.to_datetime(pd.Series(diario["time"]), format="%Y-%m-%d", errors="coerce")
     if fechas.isna().any() or fechas.duplicated().any():
         raise ErrorPermanente("Fechas inválidas o repetidas en la respuesta")
     if fechas.min().date() < desde or fechas.max().date() > hasta:
         raise ErrorPermanente(f"La API devolvió fechas fuera de [{desde}, {hasta}]")
 
-    # Un día con TODAS las mediciones nulas todavía no está publicado en el origen.
-    # No se escribe: así el watermark no avanza y la próxima corrida lo vuelve a pedir.
-    medidas = [v for v in VARIABLES if v != "weather_code"]
-    vacio = df[medidas].isna().all(axis=1)
-    if vacio.any():
-        log.warning("%d día(s) sin datos todavía en %s (desde %s): se pedirán en la próxima corrida",
-                    int(vacio.sum()), fuente, df.loc[vacio, "fecha"].min())
-        primero_vacio = df.loc[vacio, "fecha"].min()
-        df = df[df["fecha"] < primero_vacio]      # cortar en el primer hueco: sin saltos
 
-    df[VARIABLES] = df[VARIABLES].astype("float64")
-    df["fuente"] = fuente
-    df["latitud"], df["longitud"] = LATITUD, LONGITUD
-    return df
+def _dias_publicados(diario: dict) -> int:
+    """Cuántos días seguidos, desde el primero, ya tienen alguna medición publicada."""
+    medidas = [v for v in VARIABLES if v != "weather_code"]
+    for i in range(len(diario["time"])):
+        if all(diario[m][i] is None for m in medidas):
+            return i
+    return len(diario["time"])
 
 
 def _tramos(desde: date, hasta: date):
@@ -189,9 +232,16 @@ def _tramos(desde: date, hasta: date):
         d = h + timedelta(days=1)
 
 
-def extraer(desde: date, hasta: date) -> pd.DataFrame:
-    """Pide a Open-Meteo SOLO el rango [desde, hasta]."""
-    partes = []
+def extraer_datos(config: dict) -> list[dict]:
+    """Consulta la API SOLO para el rango [desde, hasta] y devuelve las respuestas validadas.
+
+    Cada elemento es {"fuente", "desde", "hasta", "daily"}: el bloque diario crudo tal
+    como lo entrega Open-Meteo. No transforma nada (eso es transformar_datos).
+    """
+    desde, hasta = config["desde"], config["hasta"]
+    registros = []
+    if desde > hasta:
+        return registros
     for url, fuente, d, h in _tramos(desde, hasta):
         log.info("Pidiendo %s -> %s a %s", d, h, fuente)
         js = _pedir(url, {
@@ -199,59 +249,113 @@ def extraer(desde: date, hasta: date) -> pd.DataFrame:
             "start_date": d.isoformat(), "end_date": h.isoformat(),
             "daily": ",".join(VARIABLES),
         })
-        parte = _validar(js, d, h, fuente)
-        partes.append(parte)
-        if len(parte) < (h - d).days + 1:      # el origen todavía no tiene el final del tramo
+        _validar_respuesta(js, d, h)
+        registros.append({"fuente": fuente, "desde": d, "hasta": h, "daily": js["daily"]})
+        if _dias_publicados(js["daily"]) < (h - d).days + 1:   # el origen todavía no tiene el final
             break
+    log.info("Obtenidos %d día(s) de la API en %d pedido(s)",
+             sum(len(r["daily"]["time"]) for r in registros), len(registros))
+    return registros
+
+
+# ---------------------------------------------------------------------------
+# 3. Transformación mínima (bronze = crudo, pero tipado y con trazabilidad)
+# ---------------------------------------------------------------------------
+def transformar_datos(registros: list[dict]) -> pd.DataFrame:
+    """Normaliza nombres y tipos y agrega columnas de control.
+
+    * `time` -> `fecha` (texto YYYY-MM-DD, la clave temporal / watermark).
+    * Variables numéricas a float64 (los nulos de la API quedan como NaN).
+    * Un día con TODAS las mediciones nulas todavía no está publicado en el origen: se
+      descarta (y lo que viene después), así el watermark no avanza y la próxima corrida
+      lo vuelve a pedir. Sin huecos en la serie.
+    * Agrega fuente, coordenadas e `ingestado_en` (auditoría).
+    La limpieza de negocio (renombres en español, rain_sum, dirección del viento) NO va
+    acá: es responsabilidad de dbt (staging).
+    """
+    partes = []
+    for reg in registros:
+        df = pd.DataFrame(reg["daily"]).rename(columns={"time": "fecha"})
+        publicados = _dias_publicados(reg["daily"])
+        if publicados < len(df):
+            log.warning("%d día(s) sin datos todavía en %s (desde %s): se pedirán en la próxima corrida",
+                        len(df) - publicados, reg["fuente"], df["fecha"].iloc[publicados])
+            df = df.iloc[:publicados]
+        if df.empty:
+            continue
+        df[VARIABLES] = df[VARIABLES].astype("float64")
+        df["fuente"] = reg["fuente"]
+        df["latitud"], df["longitud"] = LATITUD, LONGITUD
+        partes.append(df)
     if not partes:
         return pd.DataFrame()
-    df = pd.concat(partes, ignore_index=True)
-    df["ingestado_en"] = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
-    return df
+    datos = pd.concat(partes, ignore_index=True)
+    datos["ingestado_en"] = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+    return datos
+
+
+def extraer(desde: date, hasta: date) -> pd.DataFrame:
+    """Atajo usado por NB02: extraer + transformar un rango sin escribir nada."""
+    return transformar_datos(extraer_datos({"desde": desde, "hasta": hasta}))
 
 
 # ---------------------------------------------------------------------------
-# 3. Escritura en bronze
+# 4. Escritura en bronze
 # ---------------------------------------------------------------------------
-def escribir_bronze(df: pd.DataFrame, watermark: date | None) -> str:
+def guardar_bronze(datos: pd.DataFrame, config: dict) -> dict:
+    """Escribe en bronze sin duplicar.
+
+    * solo fechas posteriores al watermark -> append (lo normal todos los días)
+    * hay fechas ya cargadas (backfill)    -> MERGE por fecha (upsert)
+    """
     from deltalake import DeltaTable, write_deltalake
 
-    tabla = pa.Table.from_pandas(df, preserve_index=False)
-    reproceso = watermark is not None and df["fecha"].min() <= watermark.isoformat()
+    if datos.empty:
+        return {"modo": "sin_cambios", "escritas": 0}
+    wm = config["watermark"]
+    tabla = pa.Table.from_pandas(datos, preserve_index=False)
+    reproceso = wm is not None and datos["fecha"].min() <= wm.isoformat()
     if not reproceso:
         write_deltalake(BRONZE, tabla, mode="append", storage_options=STORAGE_OPTIONS)
-        return "append"
-    (DeltaTable(BRONZE, storage_options=STORAGE_OPTIONS)
-        .merge(source=tabla, predicate="t.fecha = s.fecha", source_alias="s", target_alias="t")
-        .when_matched_update_all()
-        .when_not_matched_insert_all()
-        .execute())
-    return "merge"
+        modo = "append"
+    else:
+        (DeltaTable(BRONZE, storage_options=STORAGE_OPTIONS)
+            .merge(source=tabla, predicate="t.fecha = s.fecha", source_alias="s", target_alias="t")
+            .when_matched_update_all()
+            .when_not_matched_insert_all()
+            .execute())
+        modo = "merge"
+    return {"modo": modo, "escritas": len(datos),
+            "desde": datos["fecha"].min(), "hasta": datos["fecha"].max()}
+
+
+# ---------------------------------------------------------------------------
+# 5. Orquestación del script (lo que llama Airflow)
+# ---------------------------------------------------------------------------
+def ingerir_incremental(inicio: date | None = None, fin: date | None = None) -> dict:
+    """Corre una ingesta para el intervalo [inicio, fin) y devuelve un resumen."""
+    config = cargar_configuracion(inicio, fin)
+    if config["desde"] > config["hasta"]:
+        log.info("Nada nuevo para pedir: bronze ya está al día. No se consulta la API.")
+        resultado = {"modo": "sin_cambios", "obtenidas": 0, "escritas": 0}
+    else:
+        registros = extraer_datos(config)
+        datos = transformar_datos(registros)
+        resultado = guardar_bronze(datos, config)
+        resultado["obtenidas"] = sum(len(r["daily"]["time"]) for r in registros)
+        if datos.empty:
+            log.info("El origen todavía no publicó datos para ese rango.")
+    if resultado["escritas"]:
+        log.info("Escritas %d filas en %s (%s), fechas %s -> %s",
+                 resultado["escritas"], BRONZE, resultado["modo"], resultado["desde"], resultado["hasta"])
+    log.info("RESUMEN: obtenidas de la API=%d | escritas en bronze=%d | modo=%s",
+             resultado["obtenidas"], resultado["escritas"], resultado["modo"])
+    return resultado
 
 
 def ingerir(inicio: date | None = None, fin: date | None = None) -> int:
-    """Corre una ingesta para el intervalo [inicio, fin). Devuelve filas escritas."""
-    fin = fin or date.today()                       # solo en corridas manuales; Airflow siempre pasa --fin
-    hasta = fin - timedelta(days=1)
-    wm = leer_watermark()
-    desde = FECHA_INICIO if wm is None else wm + timedelta(days=1)
-    if inicio is not None:
-        desde = max(FECHA_INICIO, min(desde, inicio))
-    log.info("Watermark: %s | intervalo pedido: [%s, %s) | a extraer: %s -> %s",
-             wm, inicio, fin, desde, hasta)
-
-    if desde > hasta:
-        log.info("Nada nuevo para pedir: bronze ya está al día. No se consulta la API.")
-        return 0
-
-    nuevos = extraer(desde, hasta)
-    if nuevos.empty:
-        log.info("El origen todavía no publicó datos para ese rango.")
-        return 0
-    modo = escribir_bronze(nuevos, wm)
-    log.info("Escritas %d filas en %s (%s), fechas %s -> %s",
-             len(nuevos), BRONZE, modo, nuevos["fecha"].min(), nuevos["fecha"].max())
-    return len(nuevos)
+    """Igual que ingerir_incremental pero devuelve solo las filas escritas (NB02 y tests)."""
+    return ingerir_incremental(inicio, fin)["escritas"]
 
 
 def main(argv=None) -> int:
@@ -261,7 +365,10 @@ def main(argv=None) -> int:
     a = p.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     try:
-        ingerir(a.inicio, a.fin)
+        ingerir_incremental(a.inicio, a.fin)
+    except ErrorConfiguracion as e:
+        log.error("CONFIGURACIÓN INVÁLIDA: %s", e)
+        return 3
     except ErrorPermanente as e:
         log.error("FALLA PERMANENTE (reintentar no sirve, hay que revisar): %s", e)
         return 2

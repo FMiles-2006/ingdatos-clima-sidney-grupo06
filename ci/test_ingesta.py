@@ -150,3 +150,42 @@ def test_respuesta_con_forma_inesperada_es_permanente(ing, monkeypatch, cuerpo):
     with pytest.raises(ing.ErrorPermanente):
         ing.ingerir(fin=date(2022, 1, 2))
     assert ing.leer_watermark() is None          # no se escribió nada a medias
+
+
+# ---- Controles mínimos de la actividad integradora ----
+
+def test_falta_variable_obligatoria_falla_con_mensaje_claro(ing, monkeypatch):
+    monkeypatch.setattr(ing, "BRONZE", "s3://grupo06/bronze/clima_sidney")
+    monkeypatch.delenv("AWS_SECRET_ACCESS_KEY", raising=False)
+    with pytest.raises(ing.ErrorConfiguracion, match="AWS_SECRET_ACCESS_KEY"):
+        ing.cargar_configuracion(fin=date(2022, 1, 3))
+    assert ing.PEDIDOS == []                       # ni siquiera llega a consultar la API
+
+
+def test_main_devuelve_codigo_3_si_falta_configuracion(ing, monkeypatch):
+    monkeypatch.setattr(ing, "BRONZE", "s3://grupo06/bronze/clima_sidney")
+    monkeypatch.delenv("AWS_ACCESS_KEY_ID", raising=False)
+    assert ing.main(["--fin", "2022-01-03"]) == 3
+
+
+def test_respuesta_vacia_es_permanente(ing, monkeypatch):
+    vacia = {"daily": {"time": [], **{v: [] for v in ing.VARIABLES}}, "daily_units": {"temperature_2m_max": "°C"}}
+    monkeypatch.setattr(ing.requests, "get", lambda url, params, timeout: RespuestaFalsa(200, vacia))
+    with pytest.raises(ing.ErrorPermanente, match="vacía"):
+        ing.ingerir(fin=date(2022, 1, 3))
+
+
+def test_resumen_informa_obtenidas_y_escritas(ing):
+    r = ing.ingerir_incremental(fin=date(2022, 1, 11))
+    assert r["obtenidas"] == r["escritas"] == 10 and r["modo"] == "append"
+    r2 = ing.ingerir_incremental(fin=date(2022, 1, 11))   # segunda ejecución: no duplica
+    assert r2 == {"modo": "sin_cambios", "obtenidas": 0, "escritas": 0}
+    assert _filas(ing) == (10, 10)
+
+
+def test_pipeline_por_pasos_de_la_consigna(ing):
+    config = ing.cargar_configuracion(fin=date(2022, 1, 4))
+    registros = ing.extraer_datos(config)
+    datos = ing.transformar_datos(registros)
+    assert list(datos["fecha"]) == ["2022-01-01", "2022-01-02", "2022-01-03"]
+    assert ing.guardar_bronze(datos, config)["escritas"] == 3
