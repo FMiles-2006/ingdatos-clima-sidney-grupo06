@@ -12,11 +12,11 @@ orquestado por **Airflow** y verificado por **CI** en cada cambio.
  ┌───────────────┐  ingesta   ┌──────────────────┐  dbt   ┌───────────────────────────┐ pub ┌───────────────┐   ┌──────────┐
  │ Archive ERA5  │──────────► │ bronze           │──────► │ silver  stg_clima_diario  │───► │ grupo06.      │──►│ tablero  │
  │ (≤ 2025-12-31)│ watermark  │ clima_sidney     │ build  │         stg_codigos_clima │     │ fct_clima_    │   │ 4 gráf.  │
- │ Hist.Forecast │ + MERGE    │ (Delta, crudo,   │ +tests │ gold    fct_clima_mensual │     │  mensual      │   └──────────┘
+ │ Hist.Forecast │ + MERGE    │ (Delta, crudo,   │ + test │ gold    fct_clima_mensual │     │  mensual      │   └──────────┘
  │ (≥ 2026-01-01)│            │  versionado)     │        │         feat_clima_diario │     │ feat_clima_   │
  └───────────────┘            └──────────────────┘        └───────────────────────────┘     │  diario       │
                                                                                              └───────────────┘
-        └──────────────── Airflow: preparar_entorno ► extraer_bronze ► dbt_build ► publicar_gold (06:00 ART) ──────┘
+        └──────────────── Airflow: preparar_entorno ► extraer_bronze ► dbt_run ► dbt_test ► publicar_gold (06:00 ART) ┘
 ```
 
 ## Dominio y fuentes
@@ -38,7 +38,7 @@ orquestado por **Airflow** y verificado por **CI** en cada cambio.
 │   ├── ingesta.py                # API -> bronze: watermark, errores, append/MERGE (E1)
 │   ├── publicar_gold.py          # gold DuckDB -> PostgreSQL, idempotente (E4)
 │   └── preparar_entorno.sh       # venv propio del grupo dentro del Airflow compartido
-├── dbt/                          # silver + gold + features + tests + docs (E2/E4)
+├── dbt/                          # models/staging (silver) + models/marts (gold) + tests + docs (E2/E4)
 ├── ci/                           # tests de CI + bronze de muestra
 ├── .github/workflows/ci.yml      # integración continua (E3)
 ├── notebooks/NB00..NB06          # notebooks de las prácticas, adaptados a Sídney
@@ -53,11 +53,12 @@ orquestado por **Airflow** y verificado por **CI** en cada cambio.
 | Entrega | Documento |
 |---|---|
 | E1 · Ingesta idempotente → bronze | [docs/E1_ingesta.md](docs/E1_ingesta.md) |
-| E2 · dbt silver/gold + calidad | [docs/E2_dbt.md](docs/E2_dbt.md) |
+| E2 · dbt staging (silver) / marts (gold) + calidad | [docs/E2_dbt.md](docs/E2_dbt.md) |
 | E3 · Airflow + CI | [docs/E3_airflow_ci.md](docs/E3_airflow_ci.md) |
 | E4 · Serving, features, tablero | [docs/E4_serving.md](docs/E4_serving.md) · [docs/tablero_metabase.md](docs/tablero_metabase.md) |
 | Governance del dataset | [docs/governance.md](docs/governance.md) |
 | Defensa | [docs/defensa.md](docs/defensa.md) |
+| Actividad integradora (scripts + dbt + Airflow) | [README_GRUPO.md](README_GRUPO.md) · evidencias en [docs/evidencias/](docs/evidencias/) |
 
 ## Puesta en marcha en el servidor de la cátedra (lo que se usa en la defensa)
 
