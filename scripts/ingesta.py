@@ -272,4 +272,12 @@ def main(argv=None) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    codigo = main()
+    # Workaround: con deltalake 1.x + Python 3.13 el proceso puede quedar colgado al
+    # finalizar el intérprete (hilos nativos del runtime de I/O de deltalake), aunque
+    # todo el trabajo ya terminó. Vaciamos los buffers y salimos explícitamente para
+    # que Airflow vea el código de salida real en vez de un timeout.
+    logging.shutdown()
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(codigo)
