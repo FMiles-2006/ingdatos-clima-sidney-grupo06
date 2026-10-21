@@ -83,7 +83,9 @@ with DAG(
 
     preparar_entorno = BashOperator(
         task_id="preparar_entorno",
-        bash_command=f"{_prep} && bash scripts/preparar_entorno.sh",
+        # Ojo: si el comando terminara en ".sh", Airflow lo tomaría como un archivo de
+        # plantilla Jinja (TemplateNotFound). Por eso la ruta va con comillas y sigue texto.
+        bash_command=f'{_prep} && bash "{CURSO}/scripts/preparar_entorno.sh" && echo "entorno listo"',
         execution_timeout=pendulum.duration(minutes=20),
     )
 
