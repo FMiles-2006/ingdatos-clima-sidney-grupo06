@@ -1,0 +1,61 @@
+# Integración continua del pipeline de grupo06.
+# Corre en cada push y en cada pull request. Con la protección de rama de 'main'
+# (status checks obligatorios) un cambio que rompe algo NO puede entrar.
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ingesta:
+    name: Ingesta (tests sin red)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12", cache: pip}
+      - run: pip install -r requirements-pipeline.txt pytest
+      - run: python -m py_compile entorno.py scripts/*.py
+      - run: pytest -q ci/test_ingesta.py
+
+  dbt:
+    name: dbt (SQL válido + tests de datos)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BRONZE_PATH: ${{ github.workspace }}/ci/bronze_delta
+      DUCKDB_PATH: ${{ github.workspace }}/ci/ci.duckdb
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12", cache: pip}
+      - run: pip install -r requirements-pipeline.txt
+      - name: Bronze de muestra (tabla Delta local)
+        run: python ci/crear_bronze_muestra.py
+      - name: SQL válido (dbt parse + compile)
+        working-directory: dbt
+        run: dbt parse --profiles-dir . && dbt compile --profiles-dir .
+      - name: Modelos + tests (dbt build)
+        working-directory: dbt
+        run: dbt build --profiles-dir .
+
+  dag:
+    name: DAG importa en Airflow 2.9.3
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11", cache: pip}
+      - run: >
+          pip install "apache-airflow==2.9.3" pytest
+          --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.9.3/constraints-3.11.txt"
+      - run: python -m py_compile dags/*.py
+      - run: AIRFLOW__CORE__LOAD_EXAMPLES=false pytest -q ci/test_dag.py
