@@ -1,0 +1,12 @@
+# Perfil dbt: DuckDB en un archivo dentro de dbt/ + lectura de bronze (Delta en MinIO).
+# Las credenciales NO están acá: se leen de variables de entorno (entorno.py / .env).
+clima_sidney:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "{{ env_var('DUCKDB_PATH', 'warehouse.duckdb') }}"
+      threads: 2
+      plugins:
+        # Lee tablas Delta con la librería deltalake (no depende de bajar extensiones de DuckDB).
+        - module: delta

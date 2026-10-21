@@ -1,0 +1,29 @@
+version: 2
+
+sources:
+  - name: bronze
+    description: "Capa bronze: datos crudos tal como los entrega Open-Meteo, en Delta Lake sobre MinIO."
+    meta:
+      plugin: delta
+    tables:
+      - name: clima_diario
+        description: >
+          Una fila por día local de Sídney con las variables diarias crudas de Open-Meteo.
+          Hasta 2025-12-31 provienen de la Archive API (reanálisis ERA5); desde 2026-01-01,
+          de la Historical Forecast API. La columna `fuente` indica cuál.
+        meta:
+          # En el servidor/local: s3://<bucket>/bronze/clima_sidney. En CI: una tabla Delta local de muestra.
+          delta_table_path: "{{ env_var('BRONZE_PATH', 's3://' ~ env_var('MINIO_BUCKET', 'lake') ~ '/bronze/clima_sidney') }}"
+          storage_options:
+            AWS_ACCESS_KEY_ID: "{{ env_var('AWS_ACCESS_KEY_ID', 'minioadmin') }}"
+            AWS_SECRET_ACCESS_KEY: "{{ env_var('AWS_SECRET_ACCESS_KEY', 'minioadmin') }}"
+            AWS_ENDPOINT_URL: "{{ env_var('AWS_ENDPOINT_URL', 'http://minio:9000') }}"
+            AWS_REGION: "us-east-1"
+            AWS_ALLOW_HTTP: "true"
+        columns:
+          - name: fecha
+            description: "Día local de Sídney (texto YYYY-MM-DD). Es el watermark de la ingesta."
+          - name: fuente
+            description: "API de origen: archive_era5 o historical_forecast."
+          - name: ingestado_en
+            description: "Momento (UTC, ISO 8601) en que la fila se escribió en bronze."

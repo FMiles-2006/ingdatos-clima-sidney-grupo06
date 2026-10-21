@@ -1,0 +1,94 @@
+version: 2
+
+models:
+  - name: fct_clima_mensual
+    description: >
+      Resumen del clima de Sídney por mes. Responde: ¿cómo fue cada mes (temperatura,
+      lluvia, viento) y cuánto se apartó del promedio de ese mismo mes en 2022-2025?
+      Se publica en PostgreSQL y alimenta el tablero de Metabase.
+    columns:
+      - name: mes
+        description: "Primer día del mes resumido (ej. 2026-03-01 = marzo de 2026)."
+        data_tests: [not_null, unique]
+      - name: anio
+        description: "Año del mes resumido."
+      - name: mes_numero
+        description: "Número del mes (1 = enero ... 12 = diciembre)."
+      - name: estacion
+        description: "Estación del hemisferio sur a la que pertenece el mes."
+      - name: dias_con_datos
+        description: "Días del mes que tienen datos. Menor que dias_del_mes en el mes en curso."
+      - name: dias_del_mes
+        description: "Días que tiene el mes en el calendario."
+      - name: mes_completo
+        description: "Verdadero si el mes tiene todos sus días. Los meses incompletos no deben compararse en totales (lluvia, días)."
+      - name: temperatura_media_c
+        description: "Temperatura media del mes, en °C (promedio de las temperaturas medias diarias)."
+        data_tests: [not_null]
+      - name: maxima_promedio_c
+        description: "Promedio de las temperaturas máximas diarias, en °C: qué tan cálidas fueron las tardes."
+      - name: minima_promedio_c
+        description: "Promedio de las temperaturas mínimas diarias, en °C: qué tan frescas fueron las noches."
+      - name: maxima_absoluta_c
+        description: "Temperatura más alta registrada en el mes, en °C."
+      - name: minima_absoluta_c
+        description: "Temperatura más baja registrada en el mes, en °C."
+      - name: anomalia_temperatura_c
+        description: "Cuántos °C más cálido (+) o más frío (-) fue el mes respecto del promedio de ese mismo mes en 2022-2025."
+      - name: lluvia_total_mm
+        description: "Milímetros de lluvia acumulados en el mes."
+        data_tests:
+          - valor_en_rango: {arguments: {minimo: 0, maximo: 1500}}
+      - name: lluvia_referencia_mm
+        description: "Lluvia promedio de ese mismo mes en 2022-2025, en mm: el valor 'normal' contra el cual comparar."
+      - name: dias_con_lluvia
+        description: "Cantidad de días del mes con 1 mm de lluvia o más."
+      - name: dias_de_calor_30c
+        description: "Cantidad de días del mes con máxima de 30 °C o más."
+      - name: dias_con_tormenta
+        description: "Días cuyo estado del tiempo predominante fue tormenta eléctrica. Ojo: ERA5 (antes de 2026) no codifica tormentas, así que antes de 2026 siempre es 0."
+      - name: rafaga_maxima_kmh
+        description: "Ráfaga de viento más fuerte del mes, en km/h."
+      - name: radiacion_solar_media_mj_m2
+        description: "Energía solar diaria promedio del mes, en MJ/m²: indica meses más o menos soleados."
+      - name: fuente_del_dato
+        description: "Origen de los datos del mes: 'ERA5 (reanálisis)' para 2022-2025, 'Historical Forecast (modelo)' desde 2026."
+
+  - name: feat_clima_diario
+    description: >
+      Tabla de features: variables derivadas por día, definidas una sola vez y versionadas.
+      Cada fila describe lo que se sabe al cierre del día `fecha` (para predecir el día
+      siguiente). Ninguna columna usa información posterior a `fecha`.
+    columns:
+      - name: fecha
+        description: "Día al que corresponde el vector de features (información disponible al cierre de ese día)."
+        data_tests: [not_null, unique]
+      - name: temp_media_c
+        description: "Temperatura media del día, en °C (valor base, no derivado)."
+      - name: temp_media_movil_7d_c
+        description: "Promedio de la temperatura media de los últimos 7 días calendario, incluido el día."
+        data_tests:
+          - not_null
+          - valor_en_rango: {arguments: {minimo: -5, maximo: 50}}
+      - name: temp_media_movil_30d_c
+        description: "Promedio de la temperatura media de los últimos 30 días calendario, incluido el día."
+      - name: lluvia_acumulada_7d_mm
+        description: "Lluvia total de los últimos 7 días, en mm."
+        data_tests:
+          - valor_en_rango: {arguments: {minimo: 0, maximo: 1000}}
+      - name: lluvia_acumulada_30d_mm
+        description: "Lluvia total de los últimos 30 días, en mm."
+      - name: dias_en_ventana_7d
+        description: "Cuántos días con datos hay en la ventana de 7 días (7 = completa). Menor al inicio de la serie."
+        data_tests:
+          - valor_en_rango: {arguments: {minimo: 1, maximo: 7}}
+      - name: variacion_temp_vs_dia_anterior_c
+        description: "Cambio de la temperatura media respecto del día anterior, en °C (+ = se calentó)."
+      - name: amplitud_termica_c
+        description: "Diferencia entre máxima y mínima del día, en °C."
+      - name: desvio_vs_media_30d_c
+        description: "Cuánto se aparta la temperatura media del día de su promedio de los últimos 30 días, en °C."
+      - name: dias_desde_ultima_lluvia
+        description: "Días transcurridos desde el último día con 1 mm o más de lluvia (0 = llovió hoy). Nulo si todavía no llovió en la serie."
+      - name: fuente
+        description: "Origen del dato del día (archive_era5 / historical_forecast)."

@@ -1,0 +1,94 @@
+version: 2
+
+models:
+  - name: stg_clima_diario
+    description: >
+      Clima diario de Sídney, limpio y tipado. Una fila = un día local de Sídney (zona
+      Australia/Sydney) en el punto -33.78, 151.23. Lee de la tabla Delta de bronze.
+      Hasta 2025-12-31 los valores son reanálisis ERA5 (observación asimilada, la mejor
+      estimación disponible); desde 2026-01-01 son la salida del modelo de pronóstico
+      de corto plazo archivada por Open-Meteo.
+    columns:
+      - name: fecha
+        description: "Día calendario local de Sídney al que corresponden todas las mediciones de la fila."
+        data_tests: [not_null, unique]
+      - name: estacion
+        description: "Estación del año en el hemisferio sur (Verano = diciembre a febrero)."
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['Verano', 'Otoño', 'Invierno', 'Primavera']
+      - name: codigo_wmo
+        description: "Estado del tiempo predominante del día según la codificación de la Organización Meteorológica Mundial. Su significado está en stg_codigos_clima."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_codigos_clima')
+                field: codigo_wmo
+      - name: temp_max_c
+        description: "Temperatura más alta del día a 2 m del suelo, en grados Celsius."
+        data_tests:
+          - not_null
+          - valor_en_rango: {arguments: {minimo: -5, maximo: 50}}
+      - name: temp_min_c
+        description: "Temperatura más baja del día a 2 m del suelo, en grados Celsius."
+        data_tests:
+          - not_null
+          - valor_en_rango: {arguments: {minimo: -5, maximo: 50}}
+      - name: temp_media_c
+        description: "Promedio de las 24 temperaturas horarias del día, en grados Celsius."
+        data_tests:
+          - not_null
+          - valor_en_rango: {arguments: {minimo: -5, maximo: 50}}
+      - name: sensacion_termica_media_c
+        description: "Temperatura percibida promedio (combina temperatura, humedad y viento), en °C."
+      - name: amplitud_termica_c
+        description: "Diferencia entre la máxima y la mínima del día, en °C. Días nublados y lluviosos suelen tener amplitud baja."
+      - name: precipitacion_mm
+        description: "Agua caída en el día (lluvia + chaparrones), en milímetros. Es la única medida de lluvia comparable entre las dos fuentes."
+        data_tests:
+          - not_null
+          - valor_en_rango: {arguments: {minimo: 0, maximo: 400}}
+      - name: es_dia_lluvioso
+        description: "Verdadero si cayó 1 mm o más (definición de 'día de lluvia' del Bureau of Meteorology de Australia)."
+      - name: horas_con_precipitacion
+        description: "Cantidad de horas del día con precipitación medible. Puede ser 0 con precipitación > 0 cuando la lluvia se reparte en lloviznas mínimas (17 casos en ERA5)."
+      - name: viento_max_kmh
+        description: "Velocidad máxima del viento sostenido a 10 m, en km/h."
+        data_tests:
+          - valor_en_rango: {arguments: {minimo: 0, maximo: 200}}
+      - name: rafaga_max_kmh
+        description: "Ráfaga más fuerte del día a 10 m, en km/h."
+      - name: direccion_viento_grados
+        description: "Dirección dominante del viento, en grados desde el norte (0 = norte, 90 = este). Normalizada a 0-359."
+        data_tests:
+          - valor_en_rango: {arguments: {minimo: 0, maximo: 359}}
+      - name: radiacion_solar_mj_m2
+        description: "Energía solar recibida en el día, en megajoules por metro cuadrado."
+      - name: fuente
+        description: "API de la que vino el dato: archive_era5 (histórico 2022-2025) o historical_forecast (2026 en adelante)."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['archive_era5', 'historical_forecast']
+      - name: es_reanalisis
+        description: "Verdadero si el dato es reanálisis ERA5; falso si es salida de modelo de pronóstico."
+      - name: ingestado_en
+        description: "Momento (UTC) en que el dato entró a bronze. Permite auditar cuándo se cargó cada día."
+
+  - name: stg_codigos_clima
+    description: "Catálogo de los códigos WMO de estado del tiempo, con su descripción en español y una categoría agregada comparable entre fuentes."
+    columns:
+      - name: codigo_wmo
+        description: "Código de la Organización Meteorológica Mundial (0 = despejado ... 99 = tormenta con granizo)."
+        data_tests: [not_null, unique]
+      - name: descripcion
+        description: "Descripción del estado del tiempo en español."
+      - name: categoria
+        description: "Agrupación del código: Despejado, Nublado, Niebla, Llovizna, Lluvia, Chaparrón, Tormenta o Nieve."
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['Despejado', 'Nublado', 'Niebla', 'Llovizna', 'Lluvia', 'Chaparrón', 'Tormenta', 'Nieve']

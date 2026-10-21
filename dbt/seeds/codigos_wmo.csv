@@ -1,0 +1,29 @@
+codigo_wmo,descripcion,categoria
+0,Cielo despejado,Despejado
+1,Mayormente despejado,Despejado
+2,Parcialmente nublado,Nublado
+3,Cubierto,Nublado
+45,Niebla,Niebla
+48,Niebla con escarcha,Niebla
+51,Llovizna ligera,Llovizna
+53,Llovizna moderada,Llovizna
+55,Llovizna intensa,Llovizna
+56,Llovizna helada ligera,Llovizna
+57,Llovizna helada intensa,Llovizna
+61,Lluvia ligera,Lluvia
+63,Lluvia moderada,Lluvia
+65,Lluvia intensa,Lluvia
+66,Lluvia helada ligera,Lluvia
+67,Lluvia helada intensa,Lluvia
+71,Nevada ligera,Nieve
+73,Nevada moderada,Nieve
+75,Nevada intensa,Nieve
+77,Granos de nieve,Nieve
+80,Chaparrones ligeros,Chaparrón
+81,Chaparrones moderados,Chaparrón
+82,Chaparrones violentos,Chaparrón
+85,Chaparrones de nieve ligeros,Nieve
+86,Chaparrones de nieve intensos,Nieve
+95,Tormenta eléctrica,Tormenta
+96,Tormenta con granizo ligero,Tormenta
+99,Tormenta con granizo intenso,Tormenta
