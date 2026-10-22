@@ -6,7 +6,7 @@
 |---|---|
 | **Dataset** | Clima diario de Sídney (Open-Meteo) |
 | **Grupo** | grupo06 — Ingeniería de Datos, LCD UCA Rosario 2026 |
-| **Responsable** | **Francisco** (FMiles-2006) — atiende consultas y reclamos sobre los datos y sobre el pipeline. *(Completar con el apellido y cambiar si el grupo designa a otra persona.)* |
+| **Responsable** | **Francisco Miles** (FMiles-2006)
 | **Contacto** | Issues del repositorio `FMiles-2006/ingdatos-clima-sidney-grupo06` |
 
 **Qué contiene.** El tiempo que hizo cada día en Sídney (Australia) desde el 1 de enero de 2022 hasta ayer:
