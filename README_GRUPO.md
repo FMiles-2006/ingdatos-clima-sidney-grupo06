@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Grupo** | grupo06 |
-| **Integrantes** | _(completar: nombre y apellido de cada integrante)_ |
+| **Integrantes** | Bautista Verna · Francisco Miles · Tomás Lizazu · Martín Masuelli · Juan Ancarani · Felipe Dal Lago |
 | **API / fuente de datos** | Open-Meteo: Archive API (ERA5) + Historical Forecast API · clima diario de Sídney (−33.7786, 151.2314) |
 | **Fecha de entrega** | 27/10/2026 |
 | **Repositorio** | https://github.com/FMiles-2006/ingdatos-clima-sidney-grupo06 |
@@ -277,17 +277,50 @@ conexión fijo (todo pasó al `.env`).
 
 ## 10. Evidencias
 
-| Entregable | Dónde |
+Hay dos fuentes de evidencia, y se complementan:
+
+- **Ejecución manual (terminal de Jupyter):** `bash docs/evidencias/generar_evidencias.sh` corre cada script y
+  cada comando de dbt dos veces donde corresponde, y guarda la salida en `docs/evidencias/*.txt` con los secretos
+  ocultos. Usa el mismo venv que Airflow (`/tmp/venv_grupo06`), porque el Python de la terminal de Jupyter
+  (`/opt/conda`) no trae `deltalake` ni `pyarrow`.
+- **Ejecución orquestada (Airflow):** el log de cada tarea de `pipeline_grupo06` muestra la salida completa del
+  script o del comando de dbt que ejecutó, ya con las fechas de la corrida.
+
+| Entregable de la consigna | Archivo |
 |---|---|
 | Estructura inicial del workspace (Paso 0) | `docs/evidencias/00_workspace.txt` |
-| `py_compile` y búsqueda de credenciales | `docs/evidencias/01_validaciones.txt` |
-| Ejecución manual de la ingesta + evidencia en Bronze | `docs/evidencias/02_ingesta.txt` |
-| `dbt debug`, `run`, `test`, `docs generate` | `docs/evidencias/03_dbt.txt` |
-| Ejecución manual de `publicar_gold` + evidencia en PostgreSQL | `docs/evidencias/04_publicar_gold.txt` |
-| Linaje de dbt | `docs/capturas/linaje_dbt.png` |
-| Ejecución completa de la DAG en Airflow | `docs/capturas/airflow_dag_grid.png` y `docs/capturas/airflow_dag_graph.png` |
+| `py_compile` de los 3 archivos y búsqueda de credenciales en el código | `docs/evidencias/01_validaciones.txt` |
+| Ejecución manual de `ingesta.py` (dos veces) + evidencia en Bronze | `docs/evidencias/02_ingesta.txt` |
+| `dbt debug`, `parse`, `seed`, `run`, `test`, `docs generate` | `docs/evidencias/03_dbt.txt` |
+| Ejecución manual de `publicar_gold.py` (dos veces) + evidencia en PostgreSQL | `docs/evidencias/04_publicar_gold.txt` |
+| Linaje de dbt (staging → marts) | `docs/capturas/linaje_dbt.png` |
+| DAG con las 5 tareas | `docs/capturas/airflow_dag_graph.png` |
+| Ejecución completa de la DAG en verde | `docs/capturas/airflow_dag_grid.png` · `docs/capturas/airflow_dag_gantt.png` |
+| Log de cada tarea de la corrida completa | `docs/capturas/airflow_log_<tarea>.png` (`preparar_entorno`, `extraer_bronze`, `dbt_run`, `dbt_test`, `publicar_gold`) |
+| Manejo de errores en una falla real | `docs/capturas/airflow_log_extraer_bronze_falla_red.png` |
 
----
+### Incidente del 23/10/2026: corte de red en el servidor
+
+La tarde del 23/10 el servidor de la cátedra perdió la resolución de nombres, tanto en Jupyter como en el worker de
+Airflow: no se podía llegar ni a `pypi.org` ni a `open-meteo.com`. La corrida automática de las 06:00 de ese día
+había terminado bien. La corrida manual de las 19:41 UTC quedó como evidencia de que el manejo de errores funciona
+como lo diseñamos:
+
+```
+INFO  Destino bronze: s3://grupo06/bronze/clima_sidney | watermark: 2026-10-22 | intervalo pedido: [2026-10-22, 2026-10-23) ...
+INFO  Pidiendo 2026-10-22 -> 2026-10-22 a historical_forecast
+WARNING Falla transitoria (sin respuesta (ConnectionError)). Reintento 1/2 en 2s
+WARNING Falla transitoria (sin respuesta (ConnectionError)). Reintento 2/2 en 4s
+ERROR FALLA TRANSITORIA (Airflow reintentará la tarea): https://historical-forecast-api.open-meteo.com/v1/forecast sigue fallando tras 3 intentos
+Command exited with return code 1          → Airflow: up_for_retry
+```
+
+- La lectura de bronze en MinIO funcionó (leyó el watermark): la falla estaba solo en la salida a internet.
+- El script la clasificó como **transitoria**, reintentó con espera creciente y terminó con **código 1**.
+- Airflow puso la tarea en `up_for_retry`. Las tareas siguientes no corrieron, así que el tablero conservó la última
+  versión válida y no se publicaron datos incompletos.
+- Para completar la corrida alcanza con relanzar `extraer_bronze` con *Clear task* (incluyendo las tareas siguientes)
+  una vez que vuelve la red. No hace falta cambiar el código.
 
 ## 11. Preguntas de cierre
 
@@ -336,11 +369,11 @@ falló y si Airflow va a reintentar.
 
 ## 12. Lista de control final
 
-- [x] Los scripts funcionan fuera de Jupyter (`python -m scripts.ingesta`, `python -m scripts.publicar_gold`).
+- [x] Los scripts funcionan fuera de Jupyter: Airflow los ejecuta como procesos (`python -m scripts.ingesta`, `python -m scripts.publicar_gold`), sin abrir notebooks.
 - [x] No hay secretos dentro del código ni en las evidencias (el script de evidencias los oculta y avisa si quedó alguno).
 - [x] La ingesta escribe en Bronze y respeta la estrategia incremental.
-- [ ] `dbt debug`, `run` y `test` finalizan correctamente en el servidor → `docs/evidencias/03_dbt.txt`.
+- [ ] `dbt debug`, `run` y `test` finalizan correctamente → `docs/evidencias/03_dbt.txt` y logs de `dbt_run` / `dbt_test`. _(pendiente: corrida con red)_
 - [x] Los modelos staging y marts tienen responsabilidades diferenciadas.
 - [x] La DAG usa el `dag_id` y las rutas del grupo.
-- [ ] La ejecución completa termina correctamente en Airflow con las 5 tareas nuevas → capturas.
+- [ ] La ejecución completa termina correctamente en Airflow con las 5 tareas → `docs/capturas/airflow_dag_grid.png`. _(pendiente: corrida con red)_
 - [x] El README permite reproducir el pipeline desde cero (ver también `README.md`, sección de puesta en marcha).

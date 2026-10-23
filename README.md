@@ -99,5 +99,5 @@ cd .. && python -m scripts.publicar_gold # gold -> PostgreSQL
 
 ## Equipo
 
-grupo06 — completar con los nombres de los integrantes y quién es responsable de cada parte
-(ver la sección *Responsable* en [docs/governance.md](docs/governance.md)).
+grupo06: Bautista Verna, Francisco Miles, Tomás Lizazu, Martín Masuelli, Juan Ancarani y Felipe Dal Lago.
+El responsable del dataset figura en la sección *Responsable* de [docs/governance.md](docs/governance.md).
