@@ -1,6 +1,6 @@
 # Entrega 4 · Serving, features y governance
 
-Publicación: [`scripts/publicar_gold.py`](../scripts/publicar_gold.py) · Features: [`dbt/models/gold/feat_clima_diario.sql`](../dbt/models/gold/feat_clima_diario.sql) ·
+Publicación: [`scripts/publicar_gold.py`](../scripts/publicar_gold.py) · Features: [`dbt/models/marts/feat_clima_diario.sql`](../dbt/models/marts/feat_clima_diario.sql) ·
 Tablero: [`tablero_metabase.md`](tablero_metabase.md) · Governance: [`governance.md`](governance.md) · Notebook: [`NB06`](../notebooks/NB06_semana14_serving_metabase.ipynb)
 
 ## 1. Gold en PostgreSQL

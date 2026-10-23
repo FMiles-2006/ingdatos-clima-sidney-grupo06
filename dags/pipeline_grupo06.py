@@ -1,7 +1,14 @@
 """
 DAG del proyecto integrador — grupo06 · Clima de Sídney (Open-Meteo).
 
-    preparar_entorno >> extraer_bronze >> dbt_build >> publicar_gold
+    preparar_entorno >> extraer_bronze >> dbt_run >> dbt_test >> publicar_gold
+
+  * preparar_entorno : venv propio con deltalake + dbt (el Airflow compartido no los trae).
+  * extraer_bronze   : python -m scripts.ingesta  (API -> bronze Delta, incremental).
+  * dbt_run          : dbt seed + dbt run         (bronze -> staging/silver -> marts/gold).
+  * dbt_test         : dbt test                   (34 pruebas de calidad).
+  * publicar_gold    : python -m scripts.publicar_gold (gold DuckDB -> PostgreSQL).
+La DAG solo ORQUESTA: toda la lógica vive en scripts/ y en dbt/.
 
 Diseño para el Airflow COMPARTIDO del servidor de la cátedra:
   * El repositorio vive dentro de la carpeta de DAGs del grupo (la única que Airflow
@@ -50,7 +57,7 @@ PY, DBT = f"{VENV}/bin/python", f"{VENV}/bin/dbt"
 
 # Artefactos de cómputo de dbt (archivo DuckDB, target/, logs/) en /tmp del worker.
 # Airflow corre con otro usuario que Jupyter y no puede escribir en la carpeta del repo.
-# No hace falta que persistan: `dbt build` reconstruye silver/gold enteras desde bronze en
+# No hace falta que persistan: `dbt run` reconstruye staging/marts enteras desde bronze en
 # cada corrida; el estado durable vive en bronze (Delta/MinIO) y en gold (PostgreSQL).
 TRABAJO = f"/tmp/dbt_{GRUPO}"
 
@@ -103,14 +110,26 @@ with DAG(
         execution_timeout=pendulum.duration(minutes=15),
     )
 
-    dbt_build = BashOperator(
-        task_id="dbt_build",
-        bash_command=f"{_prep} && cd dbt && {DBT} build --profiles-dir . --no-use-colors",
-        # dbt es determinístico: si falla un test, reintentar da el mismo resultado.
-        # Un único reintento cubre fallas de infraestructura (archivo DuckDB bloqueado).
+    _dbt = f"{_prep} && cd dbt && {DBT}"   # dbt encuentra dbt_project.yml y profiles.yml en dbt/
+
+    dbt_run = BashOperator(
+        task_id="dbt_run",
+        # seed: catálogo de códigos WMO (estático, idempotente). run: staging + marts.
+        bash_command=f"{_dbt} seed --profiles-dir . --no-use-colors && {DBT} run --profiles-dir . --no-use-colors",
+        # dbt es determinístico: un único reintento cubre fallas de infraestructura
+        # (archivo DuckDB bloqueado, MinIO caído un instante).
         retries=1,
         retry_delay=pendulum.duration(minutes=2),
         execution_timeout=pendulum.duration(minutes=20),
+    )
+
+    dbt_test = BashOperator(
+        task_id="dbt_test",
+        bash_command=f"{_dbt} test --profiles-dir . --no-use-colors",
+        # Si un test falla, reintentar da lo mismo: el reintento solo cubre infraestructura.
+        retries=1,
+        retry_delay=pendulum.duration(minutes=2),
+        execution_timeout=pendulum.duration(minutes=10),
     )
 
     publicar_gold = BashOperator(
@@ -120,6 +139,6 @@ with DAG(
         execution_timeout=pendulum.duration(minutes=10),
     )
 
-    # Si dbt_build falla (p. ej. un test en rojo), publicar_gold NO corre (trigger_rule
+    # Si dbt_test falla (un test en rojo), publicar_gold NO corre (trigger_rule
     # all_success por defecto): el tablero sigue mostrando la última versión válida.
-    preparar_entorno >> extraer_bronze >> dbt_build >> publicar_gold
+    preparar_entorno >> extraer_bronze >> dbt_run >> dbt_test >> publicar_gold

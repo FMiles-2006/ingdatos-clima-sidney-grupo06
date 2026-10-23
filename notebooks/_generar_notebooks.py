@@ -282,16 +282,17 @@ nb("NB05_semana10_airflow_dag.ipynb", [
     md(f"""# NB05 · Semana 10 — El DAG en Airflow (Entrega 3)
 {CABECERA}
 
-`dags/pipeline_grupo06.py` encadena cuatro tareas atómicas:
+`dags/pipeline_grupo06.py` encadena cinco tareas atómicas:
 
 ```
-preparar_entorno ─► extraer_bronze ─► dbt_build ─► publicar_gold
+preparar_entorno ─► extraer_bronze ─► dbt_run ─► dbt_test ─► publicar_gold
 ```
 | Tarea | Qué hace | Por qué separada |
 |---|---|---|
 | `preparar_entorno` | Crea (una vez) un venv propio con deltalake/dbt | El Airflow es compartido y no trae esas librerías; si falla es infraestructura, no datos |
 | `extraer_bronze` | Open-Meteo → bronze para el intervalo de la corrida | Depende de una API externa: es la que más reintentos necesita |
-| `dbt_build` | silver + gold + tests | Determinística: si un test falla, no se publica |
+| `dbt_run` | seed + staging (silver) + marts (gold) | Transformación determinística, toda en SQL de dbt |
+| `dbt_test` | 34 pruebas de calidad | Si un test falla, no se publica: el tablero conserva la última versión válida |
 | `publicar_gold` | DuckDB → PostgreSQL | Toca el warehouse que ve Metabase; reintentable sola |"""),
     code(PREP + '''
 print((RAIZ / "dags" / "pipeline_grupo06.py").read_text())'''),
@@ -303,7 +304,7 @@ print("✔ sintaxis OK")
 ids = [kw.value.value for n in ast.walk(arbol) if isinstance(n, ast.Call)
        for kw in n.keywords if kw.arg == "task_id"]
 print("tareas:", ids)
-assert ids == ["preparar_entorno", "extraer_bronze", "dbt_build", "publicar_gold"]
+assert ids == ["preparar_entorno", "extraer_bronze", "dbt_run", "dbt_test", "publicar_gold"]
 assert "data_interval_start" in codigo and "data_interval_end" in codigo
 print("✔ la extracción recibe el intervalo del contexto")'''),
     md("""## 2. Cómo se ve una corrida

@@ -14,7 +14,7 @@
 | 0-1 | A | Arquitectura en una frase + el DAG con su grafo e historial | Airflow → `pipeline_grupo06` → Grid |
 | 1-3 | A | **Reejecución sin duplicar**: correr la ingesta dos veces | Terminal Jupyter: `cd ~/work/dags && python -m scripts.ingesta` (×2) → "Nada nuevo para pedir" |
 | 3-5 | B | **Backfill en vivo**: *Trigger DAG w/ config* con el período que elija el docente, p. ej. `{"inicio": "2026-03-01", "fin": "2026-03-08"}` → log de `extraer_bronze`: `a extraer: 2026-03-01 -> 2026-03-07`, `(merge)`; el total de filas de bronze no cambia | Airflow |
-| 5-7 | C | **Auditar**: tests en verde en el log de `dbt_build`; historial de versiones de bronze (time travel) en NB03; linaje (captura o `dbt docs`) | Airflow + Jupyter |
+| 5-7 | C | **Auditar**: tests en verde en el log de `dbt_test`; historial de versiones de bronze (time travel) en NB03; linaje (captura o `dbt docs`) | Airflow + Jupyter |
 | 7-9 | D | **Que sirva**: el tablero, enunciando la pregunta de cada gráfico | Metabase |
 | 9-10 | B | **CI** verde y el PR en rojo bloqueado | GitHub |
 
