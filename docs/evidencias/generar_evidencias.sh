@@ -4,7 +4,7 @@
 # Correr en una TERMINAL de Jupyter, desde la raíz del grupo:
 #     cd ~/work/dags && bash docs/evidencias/generar_evidencias.sh
 #
-# Deja un .txt por paso en docs/evidencias/. Ningún secreto queda en las salidas:
+# Deja un .txt por paso en docs/evidencias/. Usa el mismo venv que Airflow. Ningún secreto queda en las salidas:
 # los valores de las variables sensibles del .env se reemplazan por "****".
 # Escribe en el bronze real y republica la gold: ambas operaciones son idempotentes
 # (la segunda corrida de cada script demuestra justamente eso).
@@ -20,9 +20,18 @@ if [ ! -f .env ]; then
 fi
 set -a; . ./.env; set +a
 
-# Valores a ocultar en todas las salidas
+# Mismo entorno que Airflow: el Python de Jupyter (/opt/conda) no trae deltalake ni
+# pyarrow, así que se usa el venv del pipeline (lo crea una sola vez preparar_entorno.sh).
+export PIPELINE_VENV="${PIPELINE_VENV:-/tmp/venv_${GRUPO:-local}}"
+echo "== Preparando el venv del pipeline ($PIPELINE_VENV); la primera vez tarda unos minutos"
+bash scripts/preparar_entorno.sh || { echo "No se pudo crear el venv del pipeline" >&2; exit 1; }
+export PATH="$PIPELINE_VENV/bin:$PATH"
+echo "   python: $(command -v python) · dbt: $(command -v dbt)"
+
+# Valores a ocultar en todas las salidas. AWS_ACCESS_KEY_ID no se oculta: en el servidor
+# es el nombre del grupo (no es secreto) y ocultarlo tapaba el schema en las salidas.
 SECRETOS=()
-for v in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY PGPASSWORD; do
+for v in AWS_SECRET_ACCESS_KEY PGPASSWORD; do
   [ -n "${!v:-}" ] && SECRETOS+=("${!v}")
 done
 ocultar() {
