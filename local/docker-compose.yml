@@ -1,0 +1,110 @@
+# =============================================================================
+#  Entorno LOCAL para probar el tablero de Metabase (grupo06 · Clima de Sídney)
+#
+#  En el servidor de la cátedra la base "warehouse" todavía no está conectada a
+#  Metabase para nuestro grupo; por indicación del profesor lo probamos en local.
+#
+#  Levanta:
+#    postgres             warehouse local (base "warehouse", schema "grupo06") + base de Metabase
+#    pipeline             corre el pipeline real: Open-Meteo -> bronze Delta -> dbt -> Postgres
+#    metabase             http://localhost:3000
+#    configurar_metabase  crea admin, conexión, preguntas y el tablero (una vez)
+#
+#  Uso (desde la carpeta local/):   docker compose up -d     ·   ver README.md
+#  Las contraseñas de abajo son SOLO para este entorno local descartable (como el
+#  minioadmin de la plantilla de la cátedra). Se pueden cambiar en local/.env.
+# =============================================================================
+name: clima-sidney-local
+
+x-pg: &pg
+  PGHOST: postgres
+  PGPORT: "5432"
+  PGDATABASE: warehouse
+  PGUSER: ${LOCAL_PG_USER:-grupo06}
+  PGPASSWORD: ${LOCAL_PG_PASSWORD:-grupo06_local}
+  PGSCHEMA: grupo06
+
+services:
+  postgres:
+    image: postgres:16.4
+    environment:
+      POSTGRES_DB: warehouse
+      POSTGRES_USER: ${LOCAL_PG_USER:-grupo06}
+      POSTGRES_PASSWORD: ${LOCAL_PG_PASSWORD:-grupo06_local}
+    ports:
+      - "5433:5432"          # 5433 en la PC para no chocar con un Postgres que ya tengan
+    volumes:
+      - pg_local:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d warehouse"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  pipeline:
+    image: python:3.12-slim
+    working_dir: /app
+    command: ["bash", "local/correr_pipeline.sh"]
+    environment:
+      <<: *pg
+      GRUPO: grupo06
+      BRONZE_PATH: /app/local/lake/bronze_clima_sidney     # bronze Delta en una carpeta local (no MinIO)
+      DUCKDB_PATH: /app/local/lake/warehouse.duckdb
+      DBT_TARGET_PATH: /app/local/lake/dbt_target
+      DBT_LOG_PATH: /app/local/lake/dbt_logs
+      PIP_ROOT_USER_ACTION: ignore
+    volumes:
+      - ..:/app                 # el repositorio completo: mismo código que corre Airflow
+      - pip_cache:/root/.cache/pip
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  metabase:
+    image: metabase/metabase:v0.50.0
+    ports:
+      - "3000:3000"
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_HOST: postgres
+      MB_DB_PORT: "5432"
+      MB_DB_DBNAME: metabase_app
+      MB_DB_USER: ${LOCAL_PG_USER:-grupo06}
+      MB_DB_PASS: ${LOCAL_PG_PASSWORD:-grupo06_local}
+      MB_SITE_LOCALE: es
+      MB_ANON_TRACKING_ENABLED: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail -s http://localhost:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 40
+      start_period: 60s
+
+  configurar_metabase:
+    image: python:3.12-slim
+    working_dir: /app
+    command: ["bash", "-c", "pip install --quiet --disable-pip-version-check requests==2.32.5 && python local/configurar_metabase.py"]
+    environment:
+      <<: *pg
+      MB_URL: http://metabase:3000
+      MB_ADMIN_EMAIL: ${MB_ADMIN_EMAIL:-admin@grupo06.local}
+      MB_ADMIN_PASSWORD: ${MB_ADMIN_PASSWORD:-ClimaSidney-2026!}
+      PIP_ROOT_USER_ACTION: ignore
+    volumes:
+      - ..:/app
+      - pip_cache:/root/.cache/pip
+    depends_on:
+      metabase:
+        condition: service_healthy
+      pipeline:
+        condition: service_completed_successfully
+    restart: "no"
+
+volumes:
+  pg_local:
+  pip_cache:

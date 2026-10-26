@@ -16,3 +16,6 @@ __pycache__/
 ci/bronze_delta/
 _respaldo*/
 dbt/.user.yml
+# Entorno local de Metabase (datos generados)
+local/lake/
+local/.env

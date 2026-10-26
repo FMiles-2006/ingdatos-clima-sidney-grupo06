@@ -1,0 +1,76 @@
+# Prueba de punta a punta del entorno LOCAL de Metabase (local/docker-compose.yml):
+# levanta Postgres + Metabase, corre el pipeline real contra Open-Meteo, configura el
+# tablero por API, verifica la idempotencia y guarda capturas en docs/capturas/.
+# Se dispara a mano o cuando cambia algo de local/.
+name: Metabase local
+
+on:
+  workflow_dispatch:
+  push:
+    paths: ["local/**", "ci/capturar_tablero.py", ".github/workflows/metabase-local.yml"]
+
+permissions:
+  contents: write
+
+jobs:
+  tablero:
+    name: Postgres + Metabase + pipeline (local)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Levantar el entorno local
+        working-directory: local
+        run: docker compose up -d
+
+      - name: Esperar la configuración de Metabase
+        working-directory: local
+        run: |
+          set +e
+          docker compose wait configurar_metabase; codigo=$?
+          echo "---- pipeline";            docker compose logs pipeline | tail -40
+          echo "---- configurar_metabase"; docker compose logs configurar_metabase
+          exit $codigo
+
+      - name: Idempotencia — correr el pipeline otra vez (no debe traer nada nuevo)
+        working-directory: local
+        run: |
+          docker compose run --rm pipeline | tee pipeline2.log
+          grep -q "Nada nuevo para pedir" pipeline2.log
+
+      - name: Idempotencia — reconfigurar Metabase (no debe duplicar)
+        working-directory: local
+        run: |
+          docker compose run --rm --no-deps configurar_metabase
+          docker compose exec -T postgres psql -U grupo06 -d metabase_app -tAc \
+            "select count(*) from report_card where archived = false" | tee n_cards.txt
+          test "$(cat n_cards.txt)" = "7"
+
+      - name: Datos en el warehouse local
+        working-directory: local
+        run: |
+          docker compose exec -T postgres psql -U grupo06 -d warehouse -c \
+            "select count(*) meses, min(mes), max(mes) from grupo06.fct_clima_mensual"
+          docker compose exec -T postgres psql -U grupo06 -d warehouse -c \
+            "select count(*) dias, min(fecha), max(fecha) from grupo06.feat_clima_diario"
+
+      - name: Capturas del tablero
+        run: |
+          pip install --quiet playwright==1.47.0 requests
+          python -m playwright install --with-deps chromium
+          python ci/capturar_tablero.py
+
+      - name: Guardar capturas en la rama
+        if: github.ref != 'refs/heads/main'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/capturas/metabase_tablero.png
+          git diff --cached --quiet || git commit -m "Captura del tablero de Metabase local (generada por CI)"
+          git push
+
+      - name: Logs si algo falla
+        if: failure()
+        working-directory: local
+        run: docker compose logs --tail 200
