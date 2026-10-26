@@ -1,0 +1,39 @@
+# Paso 2 - scripts/ingesta.py: prueba aislada, dos veces seguidas
+# grupo06 · 2026-10-26 14:53 UTC · a80d5fb92ee5
+
+$ python -m scripts.ingesta
+2026-10-26 14:53:11,404 INFO Destino bronze: s3://grupo06/bronze/clima_sidney | watermark: 2026-10-25 | intervalo pedido: [None, 2026-10-26) | a extraer: 2026-10-26 -> 2026-10-25
+2026-10-26 14:53:11,404 INFO Nada nuevo para pedir: bronze ya está al día. No se consulta la API.
+2026-10-26 14:53:11,404 INFO RESUMEN: obtenidas de la API=0 | escritas en bronze=0 | modo=sin_cambios
+→ código de salida: 0
+
+$ python -m scripts.ingesta   # segunda vez: no debe consultar la API ni duplicar
+2026-10-26 14:53:12,032 INFO Destino bronze: s3://grupo06/bronze/clima_sidney | watermark: 2026-10-25 | intervalo pedido: [None, 2026-10-26) | a extraer: 2026-10-26 -> 2026-10-25
+2026-10-26 14:53:12,032 INFO Nada nuevo para pedir: bronze ya está al día. No se consulta la API.
+2026-10-26 14:53:12,032 INFO RESUMEN: obtenidas de la API=0 | escritas en bronze=0 | modo=sin_cambios
+→ código de salida: 0
+
+## Evidencia en Bronze
+$ python - <<'PY'
+from deltalake import DeltaTable
+import entorno
+dt = DeltaTable(entorno.BRONZE, storage_options=entorno.STORAGE_OPTIONS)
+df = dt.to_pandas(columns=['fecha', 'fuente'])
+print('tabla      :', entorno.BRONZE)
+print('versión    :', dt.version())
+print('filas      :', len(df))
+print('fechas únicas:', df.fecha.nunique(), '(filas == fechas únicas -> sin duplicados)')
+print('rango      :', df.fecha.min(), '->', df.fecha.max())
+print(df.groupby('fuente').size().to_string())
+assert len(df) == df.fecha.nunique()
+PY
+tabla      : s3://grupo06/bronze/clima_sidney
+versión    : 11
+filas      : 1759
+fechas únicas: 1759 (filas == fechas únicas -> sin duplicados)
+rango      : 2022-01-01 -> 2026-10-25
+fuente
+archive_era5           1461
+historical_forecast     298
+→ código de salida: 0
+

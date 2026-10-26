@@ -1,0 +1,19 @@
+# Validaciones antes del despliegue
+# grupo06 · 2026-10-26 14:53 UTC · a80d5fb92ee5
+
+$ python -m py_compile scripts/ingesta.py && echo OK
+OK
+→ código de salida: 0
+
+$ python -m py_compile scripts/publicar_gold.py && echo OK
+OK
+→ código de salida: 0
+
+$ python -m py_compile dags/pipeline_grupo06.py && echo OK
+OK
+→ código de salida: 0
+
+$ grep -nE "AWS_SECRET_ACCESS_KEY *=|PGPASSWORD *=|password *=" scripts/*.py dags/*.py || echo "Sin credenciales escritas en el código"
+Sin credenciales escritas en el código
+→ código de salida: 0
+

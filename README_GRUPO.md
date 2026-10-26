@@ -290,7 +290,7 @@ Hay dos fuentes de evidencia, y se complementan:
 |---|---|
 | Estructura inicial del workspace (Paso 0) | `docs/evidencias/00_workspace.txt` |
 | `py_compile` de los 3 archivos y búsqueda de credenciales en el código | `docs/evidencias/01_validaciones.txt` |
-| Ejecución manual de `ingesta.py` (dos veces) + evidencia en Bronze | `docs/evidencias/02_ingesta.txt` |
+| Ejecución manual de `ingesta.py` (dos veces) + evidencia en Bronze | `docs/evidencias/02_ingesta.txt`: las dos corridas dan `modo=sin_cambios` porque la DAG ya había cargado hasta el día anterior, así que no se consulta la API. Bronze: 1.759 filas = 1.759 fechas únicas. La escritura con `append` se ve en `airflow_log_extraer_bronze.png` |
 | `dbt debug`, `parse`, `seed`, `run`, `test`, `docs generate` | `docs/evidencias/03_dbt.txt` |
 | Ejecución manual de `publicar_gold.py` (dos veces) + evidencia en PostgreSQL | `docs/evidencias/04_publicar_gold.txt` |
 | Linaje de dbt (staging → marts) | `docs/capturas/linaje_dbt.png` |
@@ -374,7 +374,7 @@ falló y si Airflow va a reintentar.
 - [x] Los scripts funcionan fuera de Jupyter: Airflow los ejecuta como procesos (`python -m scripts.ingesta`, `python -m scripts.publicar_gold`), sin abrir notebooks.
 - [x] No hay secretos dentro del código ni en las evidencias (el script de evidencias los oculta y avisa si quedó alguno).
 - [x] La ingesta escribe en Bronze y respeta la estrategia incremental.
-- [ ] `dbt debug`, `run` y `test` finalizan correctamente → `run` y `test` en los logs de Airflow (`PASS=4`, `PASS=34`); falta `dbt debug` en `docs/evidencias/03_dbt.txt`.
+- [x] `dbt debug`, `run` y `test` finalizan correctamente → `docs/evidencias/03_dbt.txt` (`All checks passed!`, `PASS=4`, `PASS=34`) y logs de `dbt_run` / `dbt_test`.
 - [x] Los modelos staging y marts tienen responsabilidades diferenciadas.
 - [x] La DAG usa el `dag_id` y las rutas del grupo.
 - [x] La ejecución completa termina correctamente en Airflow con las 5 tareas → `docs/capturas/airflow_dag_grid.png`, `airflow_dag_gantt.png` y logs.
