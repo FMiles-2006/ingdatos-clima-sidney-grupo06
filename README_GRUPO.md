@@ -294,10 +294,10 @@ Hay dos fuentes de evidencia, y se complementan:
 | `dbt debug`, `parse`, `seed`, `run`, `test`, `docs generate` | `docs/evidencias/03_dbt.txt` |
 | Ejecución manual de `publicar_gold.py` (dos veces) + evidencia en PostgreSQL | `docs/evidencias/04_publicar_gold.txt` |
 | Linaje de dbt (staging → marts) | `docs/capturas/linaje_dbt.png` |
-| DAG con las 5 tareas | `docs/capturas/airflow_dag_graph.png` |
+| DAG con las 5 tareas | `docs/capturas/airflow_dag_graph_falla_red.png` (también se ven en el Grid y el Gantt) |
 | Ejecución completa de la DAG en verde (corrida programada `scheduled__2026-10-25T09:00`, se ejecutó el 26/10 a las 06:00 ART) | `docs/capturas/airflow_dag_grid.png` · `docs/capturas/airflow_dag_gantt.png` |
 | Log de cada tarea de esa corrida | `docs/capturas/airflow_log_<tarea>.png` (`preparar_entorno`, `extraer_bronze`, `dbt_run`, `dbt_test`, `publicar_gold`) |
-| Manejo de errores en una falla real | `docs/capturas/airflow_log_extraer_bronze_falla_red.png` |
+| Manejo de errores en una falla real (corrida manual del 23/10) | `docs/capturas/airflow_log_extraer_bronze_falla_red.png` (3.er intento) · `docs/capturas/airflow_dag_graph_falla_red.png` (`failed` → `upstream_failed`) |
 
 ### Incidente del 23/10/2026: corte de red en el servidor
 
