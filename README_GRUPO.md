@@ -295,8 +295,8 @@ Hay dos fuentes de evidencia, y se complementan:
 | Ejecución manual de `publicar_gold.py` (dos veces) + evidencia en PostgreSQL | `docs/evidencias/04_publicar_gold.txt` |
 | Linaje de dbt (staging → marts) | `docs/capturas/linaje_dbt.png` |
 | DAG con las 5 tareas | `docs/capturas/airflow_dag_graph.png` |
-| Ejecución completa de la DAG en verde | `docs/capturas/airflow_dag_grid.png` · `docs/capturas/airflow_dag_gantt.png` |
-| Log de cada tarea de la corrida completa | `docs/capturas/airflow_log_<tarea>.png` (`preparar_entorno`, `extraer_bronze`, `dbt_run`, `dbt_test`, `publicar_gold`) |
+| Ejecución completa de la DAG en verde (corrida programada `scheduled__2026-10-25T09:00`, se ejecutó el 26/10 a las 06:00 ART) | `docs/capturas/airflow_dag_grid.png` · `docs/capturas/airflow_dag_gantt.png` |
+| Log de cada tarea de esa corrida | `docs/capturas/airflow_log_<tarea>.png` (`preparar_entorno`, `extraer_bronze`, `dbt_run`, `dbt_test`, `publicar_gold`) |
 | Manejo de errores en una falla real | `docs/capturas/airflow_log_extraer_bronze_falla_red.png` |
 
 ### Incidente del 23/10/2026: corte de red en el servidor
@@ -319,8 +319,10 @@ Command exited with return code 1          → Airflow: up_for_retry
 - El script la clasificó como **transitoria**, reintentó con espera creciente y terminó con **código 1**.
 - Airflow puso la tarea en `up_for_retry`. Las tareas siguientes no corrieron, así que el tablero conservó la última
   versión válida y no se publicaron datos incompletos.
-- Para completar la corrida alcanza con relanzar `extraer_bronze` con *Clear task* (incluyendo las tareas siguientes)
-  una vez que vuelve la red. No hace falta cambiar el código.
+- No hizo falta relanzar nada a mano. Cuando volvió la red, las corridas automáticas del 24, 25 y 26/10 terminaron
+  en verde, y la estrategia incremental recuperó sola el día que había quedado pendiente: cada corrida pide desde
+  `watermark + 1`, no solo el día de su intervalo. La prueba `assert_serie_sin_huecos` pasó en esas corridas, o sea
+  que la serie quedó sin días faltantes. No hubo que cambiar el código.
 
 ## 11. Preguntas de cierre
 
@@ -372,8 +374,8 @@ falló y si Airflow va a reintentar.
 - [x] Los scripts funcionan fuera de Jupyter: Airflow los ejecuta como procesos (`python -m scripts.ingesta`, `python -m scripts.publicar_gold`), sin abrir notebooks.
 - [x] No hay secretos dentro del código ni en las evidencias (el script de evidencias los oculta y avisa si quedó alguno).
 - [x] La ingesta escribe en Bronze y respeta la estrategia incremental.
-- [ ] `dbt debug`, `run` y `test` finalizan correctamente → `docs/evidencias/03_dbt.txt` y logs de `dbt_run` / `dbt_test`. _(pendiente: corrida con red)_
+- [ ] `dbt debug`, `run` y `test` finalizan correctamente → `run` y `test` en los logs de Airflow (`PASS=4`, `PASS=34`); falta `dbt debug` en `docs/evidencias/03_dbt.txt`.
 - [x] Los modelos staging y marts tienen responsabilidades diferenciadas.
 - [x] La DAG usa el `dag_id` y las rutas del grupo.
-- [ ] La ejecución completa termina correctamente en Airflow con las 5 tareas → `docs/capturas/airflow_dag_grid.png`. _(pendiente: corrida con red)_
+- [x] La ejecución completa termina correctamente en Airflow con las 5 tareas → `docs/capturas/airflow_dag_grid.png`, `airflow_dag_gantt.png` y logs.
 - [x] El README permite reproducir el pipeline desde cero (ver también `README.md`, sección de puesta en marcha).
