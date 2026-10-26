@@ -1,0 +1,180 @@
+# Paso 4 - Proyecto dbt (raíz: dbt/)
+# grupo06 · 2026-10-26 14:53 UTC · a80d5fb92ee5
+
+$ cd dbt && dbt debug --no-use-colors
+14:53:13  Running with dbt=1.12.6
+14:53:13  dbt version: 1.12.6
+14:53:13  python version: 3.13.14
+14:53:13  python path: /tmp/venv_grupo06/bin/python3
+14:53:13  os info: Linux-7.0.14-8-pve-x86_64-with-glibc2.39
+14:53:13  Using profiles dir at /home/jovyan/work/dags/dbt
+14:53:13  Using profiles.yml file at /home/jovyan/work/dags/dbt/profiles.yml
+14:53:13  Using dbt_project.yml file at /home/jovyan/work/dags/dbt/dbt_project.yml
+14:53:13  adapter type: duckdb
+14:53:13  adapter version: 1.10.1
+14:53:14  Configuration:
+14:53:14    profiles.yml file [OK found and valid]
+14:53:14    dbt_project.yml file [OK found and valid]
+14:53:14  Required dependencies:
+14:53:14   - git [OK found]
+
+14:53:14  Connection:
+14:53:14    database: warehouse
+14:53:14    schema: main
+14:53:14    path: warehouse.duckdb
+14:53:14    config_options: None
+14:53:14    extensions: None
+14:53:14    settings: {}
+14:53:14    external_root: .
+14:53:14    use_credential_provider: None
+14:53:14    attach: None
+14:53:14    filesystems: None
+14:53:14    remote: None
+14:53:14    plugins: [{'module': 'delta', 'alias': None, 'config': None}]
+14:53:14    disable_transactions: False
+14:53:14  Registered adapter: duckdb=1.10.1
+14:53:14    Connection test: [OK connection ok]
+
+14:53:14  All checks passed!
+→ código de salida: 0
+
+$ cd dbt && dbt parse --no-use-colors
+14:53:16  Running with dbt=1.12.6
+14:53:16  Registered adapter: duckdb=1.10.1
+14:53:17  Performance info: /home/jovyan/work/dags/dbt/target/perf_info.json
+→ código de salida: 0
+
+$ cd dbt && dbt seed --no-use-colors
+14:53:19  Running with dbt=1.12.6
+14:53:19  Registered adapter: duckdb=1.10.1
+14:53:20  Found 4 models, 34 data tests, 1 seed, 1 source, 487 macros
+14:53:20  
+14:53:20  Concurrency: 2 threads (target='dev')
+14:53:20  
+14:53:20  1 of 1 START seed file main.codigos_wmo ........................................ [RUN]
+14:53:20  1 of 1 OK loaded seed file main.codigos_wmo .................................... [INSERT 28 in 0.05s]
+14:53:20  
+14:53:20  Finished running 1 seed in 0 hours 0 minutes and 0.14 seconds (0.14s).
+14:53:20  
+14:53:20  Completed successfully
+14:53:20  
+14:53:20  Done. PASS=1 WARN=0 ERROR=0 SKIP=0 NO-OP=0 REUSED=0 TOTAL=1
+→ código de salida: 0
+
+$ cd dbt && dbt run --no-use-colors
+14:53:22  Running with dbt=1.12.6
+14:53:22  Registered adapter: duckdb=1.10.1
+14:53:23  Found 4 models, 34 data tests, 1 seed, 1 source, 487 macros
+14:53:23  
+14:53:23  Concurrency: 2 threads (target='dev')
+14:53:23  
+14:53:23  1 of 4 START sql table model main.stg_clima_diario ............................. [RUN]
+14:53:23  2 of 4 START sql table model main.stg_codigos_clima ............................ [RUN]
+14:53:23  2 of 4 OK created sql table model main.stg_codigos_clima ....................... [OK in 0.30s]
+14:53:24  1 of 4 OK created sql table model main.stg_clima_diario ........................ [OK in 0.71s]
+14:53:24  4 of 4 START sql table model main.feat_clima_diario ............................ [RUN]
+14:53:24  3 of 4 START sql table model main.fct_clima_mensual ............................ [RUN]
+14:53:24  4 of 4 OK created sql table model main.feat_clima_diario ....................... [OK in 0.04s]
+14:53:24  3 of 4 OK created sql table model main.fct_clima_mensual ....................... [OK in 0.05s]
+14:53:24  
+14:53:24  Finished running 4 table models in 0 hours 0 minutes and 0.92 seconds (0.92s).
+14:53:24  
+14:53:24  Completed successfully
+14:53:24  
+14:53:24  Done. PASS=4 WARN=0 ERROR=0 SKIP=0 NO-OP=0 REUSED=0 TOTAL=4
+→ código de salida: 0
+
+$ cd dbt && dbt test --no-use-colors
+14:53:26  Running with dbt=1.12.6
+14:53:27  Registered adapter: duckdb=1.10.1
+14:53:27  Found 4 models, 34 data tests, 1 seed, 1 source, 487 macros
+14:53:27  
+14:53:27  Concurrency: 2 threads (target='dev')
+14:53:27  
+14:53:27  1 of 34 START test accepted_values_stg_clima_diario_estacion__Verano__Oto_o__Invierno__Primavera  [RUN]
+14:53:27  2 of 34 START test accepted_values_stg_clima_diario_fuente__archive_era5__historical_forecast  [RUN]
+14:53:27  2 of 34 PASS accepted_values_stg_clima_diario_fuente__archive_era5__historical_forecast  [PASS in 0.07s]
+14:53:27  1 of 34 PASS accepted_values_stg_clima_diario_estacion__Verano__Oto_o__Invierno__Primavera  [PASS in 0.07s]
+14:53:27  3 of 34 START test accepted_values_stg_codigos_clima_categoria__Despejado__Nublado__Niebla__Llovizna__Lluvia__Chaparr_n__Tormenta__Nieve  [RUN]
+14:53:28  4 of 34 START test assert_features_sin_fuga_temporal ........................... [RUN]
+14:53:28  3 of 34 PASS accepted_values_stg_codigos_clima_categoria__Despejado__Nublado__Niebla__Llovizna__Lluvia__Chaparr_n__Tormenta__Nieve  [PASS in 0.04s]
+14:53:28  5 of 34 START test assert_gold_dias_no_superan_el_mes .......................... [RUN]
+14:53:28  4 of 34 PASS assert_features_sin_fuga_temporal ................................. [PASS in 0.06s]
+14:53:28  6 of 34 START test assert_serie_sin_huecos ..................................... [RUN]
+14:53:28  5 of 34 PASS assert_gold_dias_no_superan_el_mes ................................ [PASS in 0.03s]
+14:53:28  7 of 34 START test assert_temperaturas_coherentes .............................. [RUN]
+14:53:28  6 of 34 PASS assert_serie_sin_huecos ........................................... [PASS in 0.02s]
+14:53:28  8 of 34 START test not_null_fct_clima_mensual_mes .............................. [RUN]
+14:53:28  7 of 34 PASS assert_temperaturas_coherentes .................................... [PASS in 0.01s]
+14:53:28  9 of 34 START test not_null_fct_clima_mensual_temperatura_media_c .............. [RUN]
+14:53:28  8 of 34 PASS not_null_fct_clima_mensual_mes .................................... [PASS in 0.02s]
+14:53:28  9 of 34 PASS not_null_fct_clima_mensual_temperatura_media_c .................... [PASS in 0.02s]
+14:53:28  10 of 34 START test not_null_feat_clima_diario_fecha ........................... [RUN]
+14:53:28  11 of 34 START test not_null_feat_clima_diario_temp_media_movil_7d_c ........... [RUN]
+14:53:28  10 of 34 PASS not_null_feat_clima_diario_fecha ................................. [PASS in 0.02s]
+14:53:28  11 of 34 PASS not_null_feat_clima_diario_temp_media_movil_7d_c ................. [PASS in 0.02s]
+14:53:28  12 of 34 START test not_null_stg_clima_diario_codigo_wmo ....................... [RUN]
+14:53:28  13 of 34 START test not_null_stg_clima_diario_fecha ............................ [RUN]
+14:53:28  12 of 34 PASS not_null_stg_clima_diario_codigo_wmo ............................. [PASS in 0.03s]
+14:53:28  14 of 34 START test not_null_stg_clima_diario_fuente ........................... [RUN]
+14:53:28  13 of 34 PASS not_null_stg_clima_diario_fecha .................................. [PASS in 0.03s]
+14:53:28  15 of 34 START test not_null_stg_clima_diario_precipitacion_mm ................. [RUN]
+14:53:28  14 of 34 PASS not_null_stg_clima_diario_fuente ................................. [PASS in 0.02s]
+14:53:28  15 of 34 PASS not_null_stg_clima_diario_precipitacion_mm ....................... [PASS in 0.02s]
+14:53:28  16 of 34 START test not_null_stg_clima_diario_temp_max_c ....................... [RUN]
+14:53:28  17 of 34 START test not_null_stg_clima_diario_temp_media_c ..................... [RUN]
+14:53:28  16 of 34 PASS not_null_stg_clima_diario_temp_max_c ............................. [PASS in 0.02s]
+14:53:28  18 of 34 START test not_null_stg_clima_diario_temp_min_c ....................... [RUN]
+14:53:28  17 of 34 PASS not_null_stg_clima_diario_temp_media_c ........................... [PASS in 0.02s]
+14:53:28  19 of 34 START test not_null_stg_codigos_clima_codigo_wmo ...................... [RUN]
+14:53:28  18 of 34 PASS not_null_stg_clima_diario_temp_min_c ............................. [PASS in 0.02s]
+14:53:28  19 of 34 PASS not_null_stg_codigos_clima_codigo_wmo ............................ [PASS in 0.02s]
+14:53:28  20 of 34 START test relationships_stg_clima_diario_codigo_wmo__codigo_wmo__ref_stg_codigos_clima_  [RUN]
+14:53:28  21 of 34 START test unique_fct_clima_mensual_mes ............................... [RUN]
+14:53:28  21 of 34 PASS unique_fct_clima_mensual_mes ..................................... [PASS in 0.03s]
+14:53:28  22 of 34 START test unique_feat_clima_diario_fecha ............................. [RUN]
+14:53:28  20 of 34 PASS relationships_stg_clima_diario_codigo_wmo__codigo_wmo__ref_stg_codigos_clima_  [PASS in 0.04s]
+14:53:28  23 of 34 START test unique_stg_clima_diario_fecha .............................. [RUN]
+14:53:28  22 of 34 PASS unique_feat_clima_diario_fecha ................................... [PASS in 0.02s]
+14:53:28  24 of 34 START test unique_stg_codigos_clima_codigo_wmo ........................ [RUN]
+14:53:28  23 of 34 PASS unique_stg_clima_diario_fecha .................................... [PASS in 0.02s]
+14:53:28  25 of 34 START test valor_en_rango_fct_clima_mensual_lluvia_total_mm__1500__0 .. [RUN]
+14:53:28  24 of 34 PASS unique_stg_codigos_clima_codigo_wmo .............................. [PASS in 0.02s]
+14:53:28  25 of 34 PASS valor_en_rango_fct_clima_mensual_lluvia_total_mm__1500__0 ........ [PASS in 0.02s]
+14:53:28  26 of 34 START test valor_en_rango_feat_clima_diario_dias_en_ventana_7d__7__1 .. [RUN]
+14:53:28  27 of 34 START test valor_en_rango_feat_clima_diario_lluvia_acumulada_7d_mm__1000__0  [RUN]
+14:53:28  26 of 34 PASS valor_en_rango_feat_clima_diario_dias_en_ventana_7d__7__1 ........ [PASS in 0.02s]
+14:53:28  27 of 34 PASS valor_en_rango_feat_clima_diario_lluvia_acumulada_7d_mm__1000__0 . [PASS in 0.02s]
+14:53:28  28 of 34 START test valor_en_rango_feat_clima_diario_temp_media_movil_7d_c__50___5  [RUN]
+14:53:28  29 of 34 START test valor_en_rango_stg_clima_diario_direccion_viento_grados__359__0  [RUN]
+14:53:28  28 of 34 PASS valor_en_rango_feat_clima_diario_temp_media_movil_7d_c__50___5 ... [PASS in 0.03s]
+14:53:28  29 of 34 PASS valor_en_rango_stg_clima_diario_direccion_viento_grados__359__0 .. [PASS in 0.02s]
+14:53:28  30 of 34 START test valor_en_rango_stg_clima_diario_precipitacion_mm__400__0 ... [RUN]
+14:53:28  31 of 34 START test valor_en_rango_stg_clima_diario_temp_max_c__50___5 ......... [RUN]
+14:53:28  30 of 34 PASS valor_en_rango_stg_clima_diario_precipitacion_mm__400__0 ......... [PASS in 0.02s]
+14:53:28  31 of 34 PASS valor_en_rango_stg_clima_diario_temp_max_c__50___5 ............... [PASS in 0.02s]
+14:53:28  32 of 34 START test valor_en_rango_stg_clima_diario_temp_media_c__50___5 ....... [RUN]
+14:53:28  33 of 34 START test valor_en_rango_stg_clima_diario_temp_min_c__50___5 ......... [RUN]
+14:53:28  32 of 34 PASS valor_en_rango_stg_clima_diario_temp_media_c__50___5 ............. [PASS in 0.02s]
+14:53:28  33 of 34 PASS valor_en_rango_stg_clima_diario_temp_min_c__50___5 ............... [PASS in 0.02s]
+14:53:28  34 of 34 START test valor_en_rango_stg_clima_diario_viento_max_kmh__200__0 ..... [RUN]
+14:53:28  34 of 34 PASS valor_en_rango_stg_clima_diario_viento_max_kmh__200__0 ........... [PASS in 0.01s]
+14:53:28  
+14:53:28  Finished running 34 data tests in 0 hours 0 minutes and 0.60 seconds (0.60s).
+14:53:28  
+14:53:28  Completed successfully
+14:53:28  
+14:53:28  Done. PASS=34 WARN=0 ERROR=0 SKIP=0 NO-OP=0 REUSED=0 TOTAL=34
+→ código de salida: 0
+
+$ cd dbt && dbt docs generate --no-use-colors
+14:53:30  Running with dbt=1.12.6
+14:53:31  Registered adapter: duckdb=1.10.1
+14:53:31  Found 4 models, 34 data tests, 1 seed, 1 source, 487 macros
+14:53:31  
+14:53:31  Concurrency: 2 threads (target='dev')
+14:53:31  
+14:53:32  Building catalog
+14:53:32  Catalog written to /home/jovyan/work/dags/dbt/target/catalog.json
+→ código de salida: 0
+

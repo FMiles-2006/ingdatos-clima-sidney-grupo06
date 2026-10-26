@@ -1,0 +1,95 @@
+# Paso 0 - Verificar el workspace
+# grupo06 · 2026-10-26 14:53 UTC · a80d5fb92ee5
+
+$ pwd
+/home/jovyan/work/dags
+→ código de salida: 0
+
+$ find . -maxdepth 2 -type d -not -path './.git*' -not -path '*__pycache__*' -not -path './.pytest_cache*' | sort
+.
+./.ipynb_checkpoints
+./ci
+./dags
+./dbt
+./dbt/logs
+./dbt/macros
+./dbt/models
+./dbt/seeds
+./dbt/target
+./dbt/tests
+./docker
+./docs
+./docs/capturas
+./docs/evidencias
+./notebooks
+./scripts
+→ código de salida: 0
+
+$ find . -maxdepth 3 -type f -not -path './.git/*' -not -path './dbt/target/*' -not -path './dbt/logs/*' -not -path '*__pycache__*' -not -path './.pytest_cache/*' | sort | head -100
+./.airflowignore
+./.env
+./.env.example
+./.github/workflows/ci.yml
+./.gitignore
+./.ipynb_checkpoints/pipeline_grupo6-checkpoint.py
+./Makefile
+./README.md
+./README_GRUPO.md
+./ci/bronze_muestra.csv
+./ci/crear_bronze_muestra.py
+./ci/test_dag.py
+./ci/test_ingesta.py
+./dag_sidney_clima.py
+./dags/pipeline_grupo06.py
+./dbt/.user.yml
+./dbt/dbt_project.yml
+./dbt/macros/test_valor_en_rango.sql
+./dbt/models/sources.yml
+./dbt/profiles.yml
+./dbt/seeds/codigos_wmo.csv
+./dbt/tests/assert_features_sin_fuga_temporal.sql
+./dbt/tests/assert_gold_dias_no_superan_el_mes.sql
+./dbt/tests/assert_serie_sin_huecos.sql
+./dbt/tests/assert_temperaturas_coherentes.sql
+./dbt/warehouse.duckdb
+./docker-compose.work.yml
+./docker-compose.yml
+./docker/Dockerfile.airflow
+./docker/Dockerfile.work
+./docker/requirements.airflow.txt
+./docker/requirements.work.txt
+./docs/E1_ingesta.md
+./docs/E2_dbt.md
+./docs/E3_airflow_ci.md
+./docs/E4_serving.md
+./docs/capturas/.gitkeep
+./docs/capturas/linaje_dbt.png
+./docs/defensa.md
+./docs/evidencias/00_workspace.txt
+./docs/evidencias/01_validaciones.txt
+./docs/evidencias/02_ingesta.txt
+./docs/evidencias/03_dbt.txt
+./docs/evidencias/04_publicar_gold.txt
+./docs/evidencias/generar_evidencias.sh
+./docs/generar_linaje.py
+./docs/governance.md
+./docs/tablero_metabase.md
+./entorno.py
+./notebooks/NB00_desplegar_en_servidor.ipynb
+./notebooks/NB01_semana02_recorrido_stack.ipynb
+./notebooks/NB02_semana04_extraccion_bronze.ipynb
+./notebooks/NB03_semana07_duckdb_delta_lake.ipynb
+./notebooks/NB04_semana08_dbt_silver_gold.ipynb
+./notebooks/NB05_semana10_airflow_dag.ipynb
+./notebooks/NB06_semana14_serving_metabase.ipynb
+./notebooks/_generar_notebooks.py
+./pipeline_grupo6.py
+./pipeline_sidney.py
+./requirements-pipeline.txt
+./scripts/__init__.py
+./scripts/ingesta.py
+./scripts/init_gold_db.sql
+./scripts/preparar_entorno.sh
+./scripts/publicar_gold.py
+→ código de salida: 0
+

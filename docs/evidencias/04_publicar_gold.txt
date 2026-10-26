@@ -1,0 +1,33 @@
+# Paso 3 - scripts/publicar_gold.py: prueba aislada, dos veces seguidas
+# grupo06 · 2026-10-26 14:53 UTC · a80d5fb92ee5
+
+$ python -m scripts.publicar_gold
+2026-10-26 14:53:34,504 INFO Leídas 58 filas de fct_clima_mensual (DuckDB)
+2026-10-26 14:53:34,504 INFO Leídas 1759 filas de feat_clima_diario (DuckDB)
+2026-10-26 14:53:34,570 INFO Publicadas 58 filas en grupo06.fct_clima_mensual
+2026-10-26 14:53:34,802 INFO Publicadas 1759 filas en grupo06.feat_clima_diario
+2026-10-26 14:53:34,802 INFO RESUMEN: fct_clima_mensual=58 filas, feat_clima_diario=1759 filas
+→ código de salida: 0
+
+$ python -m scripts.publicar_gold   # segunda vez: mismos conteos, sin duplicados
+2026-10-26 14:53:35,462 INFO Leídas 58 filas de fct_clima_mensual (DuckDB)
+2026-10-26 14:53:35,462 INFO Leídas 1759 filas de feat_clima_diario (DuckDB)
+2026-10-26 14:53:35,528 INFO Publicadas 58 filas en grupo06.fct_clima_mensual
+2026-10-26 14:53:35,750 INFO Publicadas 1759 filas en grupo06.feat_clima_diario
+2026-10-26 14:53:35,750 INFO RESUMEN: fct_clima_mensual=58 filas, feat_clima_diario=1759 filas
+→ código de salida: 0
+
+## Evidencia en PostgreSQL (warehouse)
+$ python - <<'PY'
+from sqlalchemy import create_engine, text
+import entorno
+eng = create_engine(entorno.pg_url())
+with eng.connect() as c:
+    for t, pk in [('fct_clima_mensual', 'mes'), ('feat_clima_diario', 'fecha')]:
+        n, u = c.execute(text(f'select count(*), count(distinct {pk}) from {entorno.PG_SCHEMA}.{t}')).one()
+        print(f'{entorno.PG_SCHEMA}.{t}: {n} filas, {u} claves distintas', '(sin duplicados)' if n == u else '(¡DUPLICADOS!)')
+PY
+grupo06.fct_clima_mensual: 58 filas, 58 claves distintas (sin duplicados)
+grupo06.feat_clima_diario: 1759 filas, 1759 claves distintas (sin duplicados)
+→ código de salida: 0
+

@@ -16,15 +16,16 @@ Airflow lo toma solo a los ~30 s.
 ## Las tareas y por qué están separadas
 
 ```
-preparar_entorno ──► extraer_bronze ──► dbt_build ──► publicar_gold          schedule: 0 6 * * * (America/Argentina/Cordoba)
+preparar_entorno ──► extraer_bronze ──► dbt_run ──► dbt_test ──► publicar_gold     schedule: 0 6 * * * (America/Argentina/Cordoba)
 ```
 
 | Tarea | Qué hace | Reintentos | Por qué es una tarea aparte |
 |---|---|---|---|
 | `preparar_entorno` | Crea **una sola vez** un venv propio (`/tmp/venv_grupo06`) con deltalake, duckdb, dbt-duckdb; si ya existe para esa versión de `requirements-pipeline.txt`, tarda < 1 s | 2 × (5, 10 min) | El Airflow compartido no trae esas librerías e instalar en su Python podría romper a otros grupos. Si falla es **infraestructura** (pip/red), no datos: se diagnostica distinto |
 | `extraer_bronze` | `python -m scripts.ingesta --inicio <data_interval_start> --fin <data_interval_end>` | 2 × (5, 10 min) | Depende de una API externa: es la falla transitoria más probable. Reintentarla no repite dbt ni la publicación |
-| `dbt_build` | silver + gold + features + 34 tests | 1 × 2 min | Es determinística: si un test falla, reintentar da lo mismo. El único reintento cubre fallas de infraestructura (archivo DuckDB bloqueado) |
-| `publicar_gold` | DuckDB → PostgreSQL (DELETE + INSERT en una transacción) | 2 × 2 min | Toca el warehouse que ve Metabase. **Solo corre si dbt pasó** (trigger rule `all_success`): un test en rojo no llega al tablero |
+| `dbt_run` | `dbt seed` + `dbt run`: staging (silver) + marts (gold) + features | 1 × 2 min | Es determinística: reintentar da lo mismo. El único reintento cubre fallas de infraestructura (archivo DuckDB bloqueado) |
+| `dbt_test` | `dbt test`: 34 pruebas de calidad | 1 × 2 min | Separada de `dbt_run` para que el log muestre si falló la **construcción** o la **calidad** de los datos |
+| `publicar_gold` | DuckDB → PostgreSQL (DELETE + INSERT en una transacción) | 2 × 2 min | Toca el warehouse que ve Metabase. **Solo corre si `dbt_test` pasó** (trigger rule `all_success`): un test en rojo no llega al tablero |
 
 Nada pesado en el nivel superior del archivo: solo se lee un `.env` chico. Las tareas son `BashOperator`: cada una es un
 proceso propio con el `.env` del grupo, así un Airflow compartido no mezcla credenciales ni módulos entre grupos.
