@@ -63,7 +63,7 @@ services:
     restart: "no"
 
   metabase:
-    image: metabase/metabase:v0.50.0
+    image: metabase/metabase:v0.58.35
     ports:
       - "3000:3000"
     environment:
