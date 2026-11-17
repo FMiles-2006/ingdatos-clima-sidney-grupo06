@@ -30,9 +30,15 @@ from grupo06.fct_clima_mensual order by mes desc limit 12;
 
 ## 2. Tablero
 
-En https://metabase.nexoacademia.org, con 4 visualizaciones; cada una responde una pregunta que se puede decir en voz alta.
-Las preguntas, títulos y configuración exacta están en [`tablero_metabase.md`](tablero_metabase.md) y las capturas en `docs/capturas/`
-(Metabase no se versiona: eso es lo que viaja con el repo para rehacerlo en el servidor).
+En https://metabase.nexoacademia.org (colección **Grupo06 · Clima de Sídney**), seis visualizaciones ordenadas por una
+pregunta: **¿cómo afecta la lluvia a la temperatura en Sídney?** Respuesta: casi no mueve la media, pero achica ~3 °C la
+amplitud térmica; cuantos más días sin llover, más amplitud y más calor relativo. Como contexto, se compara cada año con
+los anteriores (anomalía y lluvia acumulada en el mismo tramo de meses).
+Preguntas, SQL, lectura de cada gráfico y la decisión que apoya: [`tablero_metabase.md`](tablero_metabase.md). Capturas:
+`docs/capturas/metabase_tablero_*.png` (Metabase no se versiona: eso es lo que viaja con el repo para rehacerlo).
+
+La observabilidad del pipeline (si corrió, cuánto tardó, si el dato está al día) va aparte, en Grafana:
+[`grafana/README.md`](grafana/README.md).
 
 ## 3. Features
 

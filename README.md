@@ -55,7 +55,7 @@ orquestado por **Airflow** y verificado por **CI** en cada cambio.
 | E1 · Ingesta idempotente → bronze | [docs/E1_ingesta.md](docs/E1_ingesta.md) |
 | E2 · dbt staging (silver) / marts (gold) + calidad | [docs/E2_dbt.md](docs/E2_dbt.md) |
 | E3 · Airflow + CI | [docs/E3_airflow_ci.md](docs/E3_airflow_ci.md) |
-| E4 · Serving, features, tablero | [docs/E4_serving.md](docs/E4_serving.md) · [docs/tablero_metabase.md](docs/tablero_metabase.md) |
+| E4 · Serving, features, tablero | [docs/E4_serving.md](docs/E4_serving.md) · [docs/tablero_metabase.md](docs/tablero_metabase.md) · [docs/grafana/](docs/grafana/README.md) (observabilidad) |
 | Governance del dataset | [docs/governance.md](docs/governance.md) |
 | Defensa | [docs/defensa.md](docs/defensa.md) |
 | Actividad integradora (scripts + dbt + Airflow) | [README_GRUPO.md](README_GRUPO.md) · evidencias en [docs/evidencias/](docs/evidencias/) |
@@ -94,6 +94,7 @@ cd .. && python -m scripts.publicar_gold # gold -> PostgreSQL
 | CI (E3) | ✅ 3 jobs en verde; `main` protegida; rama `demo/ci-rojo` para mostrar el CI bloqueando |
 | Gold en PostgreSQL (E4) | ✅ `grupo06.fct_clima_mensual` y `grupo06.feat_clima_diario` (1.781 días, sin huecos ni duplicados); publicación repetible |
 | Tablero Metabase (E4) | ✅ colección **Grupo06 · Clima de Sídney** en https://metabase.nexoacademia.org — preguntas y capturas en [docs/tablero_metabase.md](docs/tablero_metabase.md) |
+| Observabilidad (Grafana) | ✅ tablero versionado en [docs/grafana/](docs/grafana/README.md) (atraso del dato, huecos, corridas, duración, reintentos); consultas probadas en el servidor |
 | Governance | ✅ 6 secciones, responsable con nombre |
 
 ## Equipo

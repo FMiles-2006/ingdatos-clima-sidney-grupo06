@@ -1,0 +1,335 @@
+{
+  "dashboard": {
+    "title": "grupo06 · Observabilidad del pipeline (clima de Sídney)",
+    "uid": "grupo06-observabilidad",
+    "tags": [
+      "grupo06",
+      "observabilidad"
+    ],
+    "timezone": "America/Argentina/Cordoba",
+    "time": {
+      "from": "now-30d",
+      "to": "now"
+    },
+    "refresh": "",
+    "schemaVersion": 39,
+    "panels": [
+      {
+        "id": 1,
+        "type": "stat",
+        "title": "Días de atraso del dato",
+        "description": "Días entre hoy y el último día cargado en la gold. Lo esperado es 1 (el pipeline trae hasta ayer).",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "bg34at26xsnpca"
+        },
+        "gridPos": {
+          "x": 0,
+          "y": 0,
+          "w": 6,
+          "h": 5
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "bg34at26xsnpca"
+            },
+            "rawSql": "select current_date - max(fecha)::date as \"Días de atraso\" from grupo06.feat_clima_diario",
+            "format": "table",
+            "editorMode": "code"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "colorMode": "background",
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "none",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "yellow",
+                  "value": 2
+                },
+                {
+                  "color": "red",
+                  "value": 3
+                }
+              ]
+            }
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 2,
+        "type": "stat",
+        "title": "Días faltantes en la serie",
+        "description": "Días esperados entre el primero y el último cargado, menos los días presentes. Debe ser 0.",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "bg34at26xsnpca"
+        },
+        "gridPos": {
+          "x": 6,
+          "y": 0,
+          "w": 6,
+          "h": 5
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "bg34at26xsnpca"
+            },
+            "rawSql": "select (max(fecha)::date - min(fecha)::date + 1) - count(distinct fecha::date) as \"Días faltantes\" from grupo06.feat_clima_diario",
+            "format": "table",
+            "editorMode": "code"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "colorMode": "background",
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "none",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 1
+                }
+              ]
+            }
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 3,
+        "type": "stat",
+        "title": "Última corrida programada",
+        "description": "Estado de la última corrida programada de pipeline_grupo06 (1 = success).",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "airflow_meta"
+        },
+        "gridPos": {
+          "x": 12,
+          "y": 0,
+          "w": 6,
+          "h": 5
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "airflow_meta"
+            },
+            "rawSql": "select case when state='success' then 1 else 0 end as \"Última corrida OK\" from dag_run where dag_id='pipeline_grupo06' and run_type='scheduled' order by execution_date desc limit 1",
+            "format": "table",
+            "editorMode": "code"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "colorMode": "background",
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "none",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "red",
+                  "value": null
+                },
+                {
+                  "color": "green",
+                  "value": 1
+                }
+              ]
+            }
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 4,
+        "type": "stat",
+        "title": "Tareas reintentadas (período)",
+        "description": "Cantidad de tareas que necesitaron más de un intento en el período elegido.",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "airflow_meta"
+        },
+        "gridPos": {
+          "x": 18,
+          "y": 0,
+          "w": 6,
+          "h": 5
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "airflow_meta"
+            },
+            "rawSql": "select count(*) as \"Reintentos\" from task_instance where dag_id='pipeline_grupo06' and try_number > 1 and $__timeFilter(start_date)",
+            "format": "table",
+            "editorMode": "code"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "colorMode": "background",
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "none",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "yellow",
+                  "value": 1
+                },
+                {
+                  "color": "red",
+                  "value": 5
+                }
+              ]
+            }
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 5,
+        "type": "barchart",
+        "title": "Duración de cada tarea por corrida (segundos)",
+        "description": "Si una tarea empieza a tardar mucho más que su promedio, algo cambió (más datos, API lenta, red).",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "airflow_meta"
+        },
+        "gridPos": {
+          "x": 0,
+          "y": 5,
+          "w": 24,
+          "h": 9
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "airflow_meta"
+            },
+            "rawSql": "select to_char(dr.execution_date, 'MM-DD') as corrida,\n       sum(extract(epoch from ti.end_date - ti.start_date)) filter (where ti.task_id='preparar_entorno') as preparar_entorno,\n       sum(extract(epoch from ti.end_date - ti.start_date)) filter (where ti.task_id='extraer_bronze') as extraer_bronze,\n       sum(extract(epoch from ti.end_date - ti.start_date)) filter (where ti.task_id='dbt_run') as dbt_run,\n       sum(extract(epoch from ti.end_date - ti.start_date)) filter (where ti.task_id='dbt_test') as dbt_test,\n       sum(extract(epoch from ti.end_date - ti.start_date)) filter (where ti.task_id='publicar_gold') as publicar_gold\nfrom task_instance ti join dag_run dr on dr.dag_id = ti.dag_id and dr.run_id = ti.run_id\nwhere ti.dag_id = 'pipeline_grupo06' and $__timeFilter(dr.execution_date)\ngroup by dr.execution_date order by dr.execution_date",
+            "format": "table",
+            "editorMode": "code"
+          }
+        ],
+        "options": {
+          "stacking": "normal",
+          "xField": "corrida",
+          "legend": {
+            "displayMode": "list",
+            "placement": "bottom"
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s"
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 6,
+        "type": "table",
+        "title": "Corridas recientes",
+        "description": "Historial de corridas: estado, tipo (programada, manual, backfill) y duración total.",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "airflow_meta"
+        },
+        "gridPos": {
+          "x": 0,
+          "y": 14,
+          "w": 24,
+          "h": 9
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "airflow_meta"
+            },
+            "rawSql": "select dr.execution_date as \"Fecha lógica\", dr.run_type as \"Tipo\", dr.state as \"Estado\",\n       round(extract(epoch from dr.end_date - dr.start_date)::numeric, 0) as \"Duración (s)\",\n       max(ti.try_number) as \"Máx. intentos\"\nfrom dag_run dr left join task_instance ti on ti.dag_id = dr.dag_id and ti.run_id = dr.run_id\nwhere dr.dag_id = 'pipeline_grupo06' and $__timeFilter(dr.execution_date)\ngroup by dr.execution_date, dr.run_type, dr.state, dr.start_date, dr.end_date\norder by dr.execution_date desc",
+            "format": "table",
+            "editorMode": "code"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {},
+          "overrides": []
+        }
+      }
+    ],
+    "description": "¿El pipeline corrió? ¿Cuánto tardó? ¿El dato está al día y completo? Metabase responde preguntas de negocio; este tablero responde si se puede confiar en el dato."
+  },
+  "overwrite": true
+}
