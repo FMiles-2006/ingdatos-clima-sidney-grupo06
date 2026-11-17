@@ -11,7 +11,7 @@ orquestado por **Airflow** y verificado por **CI** en cada cambio.
  Open-Meteo                    MinIO (s3://grupo06)        dbt + DuckDB                     PostgreSQL           Metabase
  ┌───────────────┐  ingesta   ┌──────────────────┐  dbt   ┌───────────────────────────┐ pub ┌───────────────┐   ┌──────────┐
  │ Archive ERA5  │──────────► │ bronze           │──────► │ silver  stg_clima_diario  │───► │ grupo06.      │──►│ tablero  │
- │ (≤ 2025-12-31)│ watermark  │ clima_sidney     │ build  │         stg_codigos_clima │     │ fct_clima_    │   │ 4 gráf.  │
+ │ (≤ 2025-12-31)│ watermark  │ clima_sidney     │ build  │         stg_codigos_clima │     │ fct_clima_    │   │          │
  │ Hist.Forecast │ + MERGE    │ (Delta, crudo,   │ + test │ gold    fct_clima_mensual │     │  mensual      │   └──────────┘
  │ (≥ 2026-01-01)│            │  versionado)     │        │         feat_clima_diario │     │ feat_clima_   │
  └───────────────┘            └──────────────────┘        └───────────────────────────┘     │  diario       │
@@ -84,18 +84,17 @@ cd dbt && dbt build --profiles-dir .     # silver + gold + tests
 cd .. && python -m scripts.publicar_gold # gold -> PostgreSQL
 ```
 
-## Estado (verificado en el servidor de la cátedra el 21/10/2026)
+## Estado (verificado en el servidor de la cátedra el 17/11/2026)
 
 | Parte | Estado |
 |---|---|
-| Ingesta (E1) | ✅ 1.754 días en bronze (2022-01-01 → 2026-10-20); 2ª corrida sin pedidos a la API |
+| Ingesta (E1) | ✅ bronze completo 2022-01-01 → ayer; la 2.ª corrida del día no pide nada a la API |
 | dbt (E2) | ✅ `dbt build`: 1 seed, 4 modelos, 34 tests en verde sobre la tabla Delta real |
-| Airflow (E3) | ✅ `pipeline_grupo06` en verde de punta a punta; backfill por rango y por fecha lógica probado |
-| CI (E3) | ✅ 3 jobs en verde; `main` protegida; PR #1 de demostración en rojo y bloqueado |
-| Gold en PostgreSQL (E4) | ✅ `grupo06.fct_clima_mensual` (58 meses) y `grupo06.feat_clima_diario`; publicación repetible |
-| Notebooks NB01-NB06 | ✅ ejecutados de punta a punta en el servidor |
-| Tablero Metabase (E4) | ⏳ **la base `warehouse` no está conectada en Metabase para grupo06**; agregar la conexión requiere un administrador (pedírselo a la cátedra). Las preguntas están definidas en [docs/tablero_metabase.md](docs/tablero_metabase.md) |
-| Governance | ✅ 6 secciones; falta confirmar el **responsable** (nombre y apellido) |
+| Airflow (E3) | ✅ `pipeline_grupo06` corre solo todos los días a las 06:00 (ART); todas las corridas del 26/10 al 16/11 en verde y sin reintentos; backfill por rango y por fecha lógica probado |
+| CI (E3) | ✅ 3 jobs en verde; `main` protegida; rama `demo/ci-rojo` para mostrar el CI bloqueando |
+| Gold en PostgreSQL (E4) | ✅ `grupo06.fct_clima_mensual` y `grupo06.feat_clima_diario` (1.781 días, sin huecos ni duplicados); publicación repetible |
+| Tablero Metabase (E4) | ✅ colección **Grupo06 · Clima de Sídney** en https://metabase.nexoacademia.org — preguntas y capturas en [docs/tablero_metabase.md](docs/tablero_metabase.md) |
+| Governance | ✅ 6 secciones, responsable con nombre |
 
 ## Equipo
 

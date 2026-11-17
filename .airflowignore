@@ -1,11 +1,11 @@
 # Airflow parsea recursivamente la carpeta de DAGs del grupo. Solo nos interesa dags/.
-# (sintaxis regexp, un patrón por línea, relativo a esta carpeta)
-\.ipynb_checkpoints
-^notebooks/
-^scripts/
-^dbt/
-^ci/
-^docs/
-^_respaldo
-^\.venv
-^\.git/
+# Patrones válidos tanto en sintaxis regexp como glob (el servidor no respetaba los anclados con ^).
+.ipynb_checkpoints
+notebooks/
+scripts/
+dbt/
+ci/
+docs/
+_respaldo*
+.venv
+.git/
