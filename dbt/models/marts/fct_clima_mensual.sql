@@ -1,6 +1,7 @@
 -- GOLD · Pregunta que responde:
 --   "¿Cómo fue el clima de Sídney cada mes (temperatura, lluvia, viento) y cuánto se
---    apartó del promedio de ese mismo mes en el período de referencia 2022-2025?"
+--    apartó del promedio de ese mismo mes en el período de referencia 2022-2025?
+--    ¿En qué fase de El Niño / La Niña estaba el Pacífico ese mes?"
 -- Granularidad: un registro por mes (silver es un registro por día).
 
 with diario as (
@@ -65,8 +66,11 @@ select
     m.dias_con_tormenta,
     m.rafaga_maxima_kmh,
     m.radiacion_solar_media_mj_m2,
+    coalesce(e.fase, 'Sin clasificar')                                  as fase_enso,
     case when m.es_reanalisis then 'ERA5 (reanálisis)' else 'Historical Forecast (modelo)' end
                                                                         as fuente_del_dato
 from mensual m
 left join referencia r using (mes_numero)
+left join {{ ref('stg_fases_enso') }} e
+       on m.mes between e.desde and coalesce(e.hasta, date '9999-12-01')
 order by m.mes
