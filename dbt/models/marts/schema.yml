@@ -65,6 +65,11 @@ models:
         data_tests: [not_null, unique]
       - name: temp_media_c
         description: "Temperatura media del día, en °C (valor base, no derivado)."
+      - name: lluvia_mm
+        description: "Lluvia caída en el día, en mm (valor base, no derivado). Permite comparar la lluvia acumulada entre años para el mismo tramo de días."
+        data_tests:
+          - not_null
+          - valor_en_rango: {arguments: {minimo: 0, maximo: 500}}
       - name: temp_media_movil_7d_c
         description: "Promedio de la temperatura media de los últimos 7 días calendario, incluido el día."
         data_tests:

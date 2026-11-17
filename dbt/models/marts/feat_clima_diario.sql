@@ -14,6 +14,7 @@ with d as (
 select
     fecha,
     temp_media_c,
+    precipitacion_mm                                        as lluvia_mm,
     -- Ventanas móviles (solo pasado + el día actual)
     round(avg(temp_media_c) over w7, 2)                     as temp_media_movil_7d_c,
     round(avg(temp_media_c) over w30, 2)                    as temp_media_movil_30d_c,
