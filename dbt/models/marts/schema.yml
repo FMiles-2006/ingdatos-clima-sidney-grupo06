@@ -51,6 +51,17 @@ models:
         description: "Ráfaga de viento más fuerte del mes, en km/h."
       - name: radiacion_solar_media_mj_m2
         description: "Energía solar diaria promedio del mes, en MJ/m²: indica meses más o menos soleados."
+      - name: fase_enso
+        description: >
+          Fase de El Niño-Oscilación del Sur vigente el día 15 del mes según la Oficina de Meteorología
+          de Australia: 'La Niña' (en el este de Australia suele traer más lluvia y días más frescos),
+          'El Niño' (suele traer menos lluvia y más calor) o 'Neutral'. 'Sin clasificar' si el mes
+          queda fuera del catálogo seeds/fases_enso.csv (hay que actualizarlo).
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['La Niña', 'Neutral', 'El Niño', 'Sin clasificar']
       - name: fuente_del_dato
         description: "Origen de los datos del mes: 'ERA5 (reanálisis)' para 2022-2025, 'Historical Forecast (modelo)' desde 2026."
 

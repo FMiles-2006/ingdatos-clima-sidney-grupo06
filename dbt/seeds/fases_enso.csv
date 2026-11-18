@@ -1,0 +1,10 @@
+desde,hasta,fase,referencia
+2021-11-01,2022-06-01,La Niña,BoM declara La Niña 2021-22 en nov-2021 y la da por terminada el 21/06/2022
+2022-07-01,2022-08-01,Neutral,BoM: Pacífico en fase neutral entre el fin de La Niña 2021-22 y la nueva declaración
+2022-09-01,2023-02-01,La Niña,BoM declara la tercera La Niña el 13/09/2022 y la da por terminada el 14/03/2023
+2023-03-01,2023-09-01,Neutral,BoM: neutral desde el 14/03/2023; El Niño se declara el 19/09/2023
+2023-10-01,2024-04-01,El Niño,BoM declara El Niño 2023-24 el 19/09/2023 y lo da por terminado a fines de abril de 2024
+2024-05-01,2025-11-01,Neutral,BoM no declaró La Niña en 2024-25 (la NOAA sí; distintos umbrales)
+2025-12-01,2026-03-01,La Niña,BoM confirma La Niña 2025-26 a inicios de dic-2025 y la da por terminada el 31/03/2026
+2026-04-01,2026-06-01,Neutral,BoM: neutral desde el fin de La Niña; El Niño se declara el 16/06/2026
+2026-07-01,,El Niño,BoM declara El Niño 2026 el 16/06/2026; vigente (actualizar este seed cuando termine)

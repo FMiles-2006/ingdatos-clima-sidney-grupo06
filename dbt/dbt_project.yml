@@ -26,5 +26,10 @@ models:
 
 seeds:
   clima_sidney:
-    +column_types:
-      codigo_wmo: integer
+    codigos_wmo:
+      +column_types:
+        codigo_wmo: integer
+    fases_enso:
+      +column_types:
+        desde: date
+        hasta: date
