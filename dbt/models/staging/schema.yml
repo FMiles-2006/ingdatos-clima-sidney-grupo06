@@ -92,3 +92,26 @@ models:
           - accepted_values:
               arguments:
                 values: ['Despejado', 'Nublado', 'Niebla', 'Llovizna', 'Lluvia', 'Chaparrón', 'Tormenta', 'Nieve']
+
+  - name: stg_fases_enso
+    description: >
+      Catálogo de fases de El Niño / La Niña según las declaraciones de la Oficina de Meteorología de
+      Australia (BoM), cargado desde seeds/fases_enso.csv. Un registro por período continuo con la misma
+      fase; `hasta` nulo indica la fase vigente. Fuente externa al pipeline: se actualiza a mano cuando
+      el BoM declara un cambio de fase.
+    columns:
+      - name: desde
+        description: "Primer mes del período (día 1)."
+        data_tests: [not_null, unique]
+      - name: hasta
+        description: "Último mes del período (día 1); nulo si la fase sigue vigente."
+      - name: fase
+        description: "Fase del período: La Niña, Neutral o El Niño."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['La Niña', 'Neutral', 'El Niño']
+      - name: referencia
+        description: "Declaración del BoM que justifica el período (fechas de inicio y fin)."
+
