@@ -80,6 +80,7 @@ Cada fila es lo que se sabe **al cierre del día `fecha`**; ninguna columna usa 
 |---|---|---|---|
 | `fecha` | fecha | Día local de Sídney | 2026-03-15 |
 | `temp_media_c` | decimal | Temperatura media del día, °C | 22.1 |
+| `lluvia_mm` | decimal | Lluvia caída ese día, en mm (valor base, sin ventana). Sirve para comparar años en el mismo tramo de días | 4.2 |
 | `temp_media_movil_7d_c` | decimal | Promedio de la temperatura media de los últimos 7 días (incluye el día) | 21.6 |
 | `temp_media_movil_30d_c` | decimal | Ídem, últimos 30 días | 22.8 |
 | `lluvia_acumulada_7d_mm` | decimal | Lluvia total de los últimos 7 días, mm | 18.4 |
@@ -114,7 +115,7 @@ un gestor de secretos (Connections/Variables de Airflow o un vault).
 
 ## 5 · Calidad y garantías
 
-**Qué se verifica automáticamente** (34 tests de dbt en cada corrida del DAG; si alguno falla, la gold **no se publica**):
+**Qué se verifica automáticamente** (36 tests de dbt en cada corrida del DAG; si alguno falla, la gold **no se publica**):
 - Un registro por día (`unique`, `not_null`) y **serie continua sin huecos**.
 - Temperaturas entre −5 y 50 °C, mínima ≤ media ≤ máxima, lluvia entre 0 y 400 mm/día, dirección del viento 0-359.
 - Valores permitidos en `fuente`, `estacion`, `categoria`; todo `codigo_wmo` existe en el catálogo.
