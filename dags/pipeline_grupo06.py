@@ -6,7 +6,7 @@ DAG del proyecto integrador — grupo06 · Clima de Sídney (Open-Meteo).
   * preparar_entorno : venv propio con deltalake + dbt (el Airflow compartido no los trae).
   * extraer_bronze   : python -m scripts.ingesta  (API -> bronze Delta, incremental).
   * dbt_run          : dbt seed + dbt run         (bronze -> staging/silver -> marts/gold).
-  * dbt_test         : dbt test                   (43 pruebas de calidad).
+  * dbt_test         : dbt test                   (44 pruebas de calidad).
   * publicar_gold    : python -m scripts.publicar_gold (gold DuckDB -> PostgreSQL).
 La DAG solo ORQUESTA: toda la lógica vive en scripts/ y en dbt/.
 

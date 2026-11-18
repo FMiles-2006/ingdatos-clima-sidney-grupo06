@@ -7,4 +7,4 @@ desde,hasta,fase,referencia
 2024-05-01,2025-11-01,Neutral,BoM no declaró La Niña en 2024-25 (la NOAA sí; distintos umbrales)
 2025-12-01,2026-03-01,La Niña,BoM confirma La Niña 2025-26 a inicios de dic-2025 y la da por terminada el 31/03/2026
 2026-04-01,2026-06-01,Neutral,BoM: neutral desde el fin de La Niña; El Niño se declara el 16/06/2026
-2026-07-01,,El Niño,BoM declara El Niño 2026 el 16/06/2026; vigente (actualizar este seed cuando termine)
+2026-07-01,2026-11-01,El Niño,BoM declara El Niño 2026 el 16/06/2026; sigue vigente en el último control (17/11/2026)
