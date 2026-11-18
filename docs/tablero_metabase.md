@@ -70,6 +70,10 @@ Notas de lectura:
 - **De dónde sale:** de las declaraciones de la Oficina de Meteorología de Australia (BoM). Es la única referencia
   externa del pipeline: un CSV de 9 filas (`dbt/seeds/fases_enso.csv`), con la declaración que justifica cada período.
   Regla: un mes toma la fase vigente el día 15.
+- **Cuando lleguen datos nuevos:** el último período está verificado hasta noviembre de 2026. Desde diciembre, los
+  meses quedan **'Sin clasificar'** (no suponemos que El Niño sigue) y el test `assert_fases_enso_al_dia` avisa en cada
+  corrida (aviso, no error: el dato del clima sigue siendo válido). Para ponerlo al día se edita `fases_enso.csv` con la
+  última declaración del BoM y se hace push; la próxima corrida reclasifica todo.
 - **En qué capa entra:** seed → **silver** `stg_fases_enso` (tipos + test propio: los períodos no se pisan) → **gold**
   `fct_clima_mensual.fase_enso` (join por mes; `accepted_values`; 'Sin clasificar' si el seed no cubre el mes).
 - **Qué muestra (meses completos 2022 → oct-2026):** La Niña −0,48 °C y +19 % de lluvia; El Niño +0,28 °C y −18 %;

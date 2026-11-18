@@ -6,7 +6,7 @@ Proyecto: [`dbt/`](../dbt) · Notebook: [`notebooks/NB04_semana08_dbt_silver_gol
 
 ```bash
 cd ~/work/dags/dbt            # en local: cd dbt
-dbt build --profiles-dir .    # 2 seeds + 5 modelos + 43 tests, en orden de dependencias
+dbt build --profiles-dir .    # 2 seeds + 5 modelos + 44 tests, en orden de dependencias
 dbt docs generate --profiles-dir .   # catálogo + linaje en target/index.html
 ```
 Requiere bronze cargado (E1) y el `.env` (o las variables de entorno del Jupyter).
@@ -54,7 +54,7 @@ Un registro por mes (59 meses frente a ~1.780 días de silver, al 17/11/2026). C
 
 ## Tests
 
-43 tests, todos en verde (`dbt build`). Genéricos donde corresponde: `unique` y `not_null` en las claves (`fecha`, `mes`,
+44 tests, todos en verde (`dbt build`). Genéricos donde corresponde: `unique` y `not_null` en las claves (`fecha`, `mes`,
 `codigo_wmo`), `accepted_values` en `fuente`, `estacion` y `categoria`, `relationships` de `codigo_wmo` contra el catálogo.
 
 **Tests propios del dominio**, con lo que detecta cada uno:
@@ -66,6 +66,7 @@ Un registro por mes (59 meses frente a ~1.780 días de silver, al 17/11/2026). C
 | `assert_serie_sin_huecos` | Días faltantes entre la primera y la última fecha | Un watermark que avanzó salteando días, o un filtro de silver que borra de más |
 | `assert_gold_dias_no_superan_el_mes` | Meses con más días que el calendario, o más días de lluvia que días con datos | Duplicados que pasaron de silver a gold |
 | `assert_features_sin_fuga_temporal` | Promedio móvil de 7 días que no coincide con su recálculo usando solo el pasado | Fuga temporal en los features (E4) |
+| `assert_fases_enso_al_dia` (aviso, no error) | Meses cerrados sin fase de El Niño / La Niña | El catálogo quedó viejo: hay que cargar la última declaración del BoM |
 | `assert_fases_enso_sin_solapamiento` | Dos períodos de El Niño / La Niña que se pisan en el catálogo | Un mes con dos fases duplicaría filas de la gold mensual al hacer el join |
 
 **Demo "romper un dato"** (NB04, sección 4): se copia bronze a una tabla **temporal**, se pone en un día una mínima de 35 °C con

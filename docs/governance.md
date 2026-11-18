@@ -33,8 +33,9 @@ solo los días que faltan (watermark).
 **Referencias externas (seeds de dbt, versionadas en el repo):** el catálogo de códigos WMO (`codigos_wmo.csv`) y las
 fases de El Niño / La Niña según las declaraciones de la Oficina de Meteorología de Australia (`fases_enso.csv`, 9
 períodos desde nov-2021, cada uno con la declaración que lo respalda). No son mediciones: clasifican los datos. Las fases
-se actualizan a mano cuando el BoM declara un cambio; si el pipeline llega a un mes que el seed no cubre, la gold lo marca
-'Sin clasificar' en lugar de inventar una fase.
+se actualizan a mano: cada período tiene un `hasta` (para la fase actual, el último mes verificado, hoy nov-2026). Los
+meses posteriores quedan 'Sin clasificar' en lugar de suponer que la fase sigue, y el test `assert_fases_enso_al_dia`
+avisa que hay que actualizar el catálogo. **Responsable de mantenerlo:** el mismo responsable del dataset.
 
 **Recorrido.**
 - **Bronze** (Delta Lake en MinIO, `s3://grupo06/bronze/clima_sidney`): la respuesta de la API tal como llega, con los nombres
@@ -123,7 +124,7 @@ un gestor de secretos (Connections/Variables de Airflow o un vault).
 
 ## 5 · Calidad y garantías
 
-**Qué se verifica automáticamente** (43 tests de dbt en cada corrida del DAG; si alguno falla, la gold **no se publica**):
+**Qué se verifica automáticamente** (44 tests de dbt en cada corrida del DAG; si alguno falla, la gold **no se publica**):
 - Un registro por día (`unique`, `not_null`) y **serie continua sin huecos**.
 - Temperaturas entre −5 y 50 °C, mínima ≤ media ≤ máxima, lluvia entre 0 y 400 mm/día, dirección del viento 0-359.
 - Valores permitidos en `fuente`, `estacion`, `categoria`; todo `codigo_wmo` existe en el catálogo.
