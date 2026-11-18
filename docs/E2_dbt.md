@@ -12,15 +12,20 @@ dbt docs generate --profiles-dir .   # catálogo + linaje en target/index.html
 Requiere bronze cargado (E1) y el `.env` (o las variables de entorno del Jupyter).
 
 **Silver lee de la tabla Delta de bronze**, no de un CSV: `models/sources.yml` declara `bronze.clima_diario`
-con el plugin `delta` de dbt-duckdb, apuntando a `s3://grupo06/bronze/clima_sidney`. El único seed es el
-catálogo de códigos WMO (una dimensión de referencia, no datos del pipeline).
+con el plugin `delta` de dbt-duckdb, apuntando a `s3://grupo06/bronze/clima_sidney`. Los dos seeds son catálogos de
+referencia, no datos del pipeline: los códigos WMO de estado del tiempo y las fases de El Niño / La Niña según la Oficina
+de Meteorología de Australia (ver [governance](governance.md)).
 
 ## Linaje
 
 ```
 source bronze.clima_diario (Delta, MinIO) ──► stg_clima_diario ──┬──► fct_clima_mensual   (gold)
-seed codigos_wmo ──► stg_codigos_clima ──────────────────────────┘    feat_clima_diario   (gold · features, E4)
+seed codigos_wmo ──► stg_codigos_clima ──────────────────────────┤
+seed fases_enso  ──► stg_fases_enso ─────────────────────────────┘
+                                         stg_clima_diario ──────────► feat_clima_diario   (gold · features, E4)
 ```
+
+![Linaje generado desde el manifest de dbt](capturas/linaje_dbt.png)
 
 ## Qué limpia silver (problemas encontrados explorando, NB03)
 
@@ -43,9 +48,9 @@ apuntando a algo que no existe fuera de dbt. Son ~1.800 filas: materializarla no
 **`fct_clima_mensual`**: *¿Cómo fue el clima de Sídney cada mes —temperatura, lluvia, viento— y cuánto se
 apartó del promedio de ese mismo mes en 2022-2025?*
 
-Un registro por mes (58 meses frente a 1.754 días de silver). Columnas en lenguaje de negocio:
+Un registro por mes (59 meses frente a ~1.780 días de silver, al 17/11/2026). Columnas en lenguaje de negocio:
 `temperatura_media_c`, `anomalia_temperatura_c`, `lluvia_total_mm` frente a `lluvia_referencia_mm`, `dias_con_lluvia`,
-`dias_de_calor_30c`, `mes_completo`, `fuente_del_dato`, etc. (todas descriptas en `models/marts/schema.yml`).
+`dias_de_calor_30c`, `mes_completo`, `fase_enso`, `fuente_del_dato`, etc. (todas descriptas en `models/marts/schema.yml`).
 
 ## Tests
 
@@ -61,6 +66,7 @@ Un registro por mes (58 meses frente a 1.754 días de silver). Columnas en lengu
 | `assert_serie_sin_huecos` | Días faltantes entre la primera y la última fecha | Un watermark que avanzó salteando días, o un filtro de silver que borra de más |
 | `assert_gold_dias_no_superan_el_mes` | Meses con más días que el calendario, o más días de lluvia que días con datos | Duplicados que pasaron de silver a gold |
 | `assert_features_sin_fuga_temporal` | Promedio móvil de 7 días que no coincide con su recálculo usando solo el pasado | Fuga temporal en los features (E4) |
+| `assert_fases_enso_sin_solapamiento` | Dos períodos de El Niño / La Niña que se pisan en el catálogo | Un mes con dos fases duplicaría filas de la gold mensual al hacer el join |
 
 **Demo "romper un dato"** (NB04, sección 4): se copia bronze a una tabla **temporal**, se pone en un día una mínima de 35 °C con
 máxima de 12 °C, y se corre dbt contra esa copia → `assert_temperaturas_coherentes` falla y el build termina con error.

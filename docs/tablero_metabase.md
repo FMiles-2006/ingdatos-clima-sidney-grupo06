@@ -12,6 +12,7 @@ el repositorio para poder rehacerlo. Cada gráfico es una *pregunta* guardada en
 ![Tablero, parte 2](capturas/metabase_tablero_2.png)
 ![Tablero, parte 3](capturas/metabase_tablero_3.png)
 ![Tablero, parte 4](capturas/metabase_tablero_4.png)
+![Tablero, parte 5](capturas/metabase_tablero_5.png)
 
 ## La pregunta que ordena el tablero
 
@@ -85,7 +86,8 @@ select temp_media_c as "Temperatura media (°C)" from grupo06.feat_clima_diario 
 select lluvia_acumulada_30d_mm as "Lluvia 30 días (mm)" from grupo06.feat_clima_diario order by fecha desc limit 1;
 ```
 
-**4 · Barras agrupadas**
+**4 · Barras agrupadas** (eje Y desde 10 °C para que se vean las diferencias; el promedio de la estación va como
+columna extra que aparece al pasar el mouse: *Visualización → Mostrar más columnas en el tooltip*)
 ```sql
 with d as (
   select case when extract(month from fecha) in (12,1,2) then 1 when extract(month from fecha) in (3,4,5) then 2
@@ -97,8 +99,8 @@ with d as (
 )
 select (array['Verano','Otoño','Invierno','Primavera'])[orden] as "Estación",
        round(avg(temp_media_c) filter (where not llovio)::numeric, 1) as "Día seco",
-       round(avg(temp_media_c) filter (where llovio)::numeric, 1) as "Día con lluvia",
-       round(avg(temp_media_c)::numeric, 1) as "Promedio de la estación"
+       round(avg(temp_media_c) filter (where llovio)::numeric, 1)     as "Día con lluvia",
+       round(avg(temp_media_c)::numeric, 1)                           as "Promedio de la estación (°C)"
 from d group by orden order by orden
 ```
 

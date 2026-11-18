@@ -5,17 +5,18 @@ Tablero: [`tablero_metabase.md`](tablero_metabase.md) · Governance: [`governanc
 
 ## 1. Gold en PostgreSQL
 
-`publicar_gold` es la **cuarta tarea del DAG**: el pipeline termina en el warehouse, nadie tiene que apretar un botón.
+`publicar_gold` es la **última tarea del DAG**: el pipeline termina en el warehouse, nadie tiene que apretar un botón.
 Publica en la base `warehouse`, schema `grupo06`:
 
 | Tabla | Filas | Clave |
 |---|---|---|
-| `fct_clima_mensual` | 1 por mes (58 al 20/10/2026) | `mes` |
-| `feat_clima_diario` | 1 por día (1.754) | `fecha` |
+| `fct_clima_mensual` | 1 por mes (59 al 17/11/2026) | `mes` |
+| `feat_clima_diario` | 1 por día (1.782 al 17/11/2026) | `fecha` |
 
 **Repetible:** cada tabla se reemplaza con `DELETE` + `INSERT` dentro de **una transacción** (correrla dos veces deja lo
-mismo, verificado en NB06). Es atómica: Metabase ve la versión anterior completa o la nueva completa. No se hace `DROP TABLE`,
-porque Metabase ata sus preguntas al id de la tabla y recrearla rompería el tablero. Si la gold viniera vacía, no se publica.
+mismo, verificado en NB06). Es atómica: Metabase ve la versión anterior completa o la nueva completa. No se hace `DROP TABLE`
+en cada corrida: solo si cambian las columnas de la gold (pasó al sumar `lluvia_mm` y `fase_enso`), la tabla se recrea
+con el esquema nuevo dentro de la misma transacción. Las preguntas del tablero son SQL nativo, así que sobreviven. Si la gold viniera vacía, no se publica.
 
 **¿Por qué mover la gold del lakehouse al warehouse?** Metabase y los usuarios de negocio se conectan a una base SQL, no a
 archivos Delta en MinIO. PostgreSQL atiende muchas consultas chicas y concurrentes (las del tablero); DuckDB es un motor
