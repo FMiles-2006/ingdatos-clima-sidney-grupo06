@@ -30,10 +30,10 @@ from grupo06.fct_clima_mensual order by mes desc limit 12;
 
 ## 2. Tablero
 
-En https://metabase.nexoacademia.org (colección **Grupo06 · Clima de Sídney**), seis visualizaciones ordenadas por una
-pregunta: **¿cómo afecta la lluvia a la temperatura en Sídney?** Respuesta: casi no mueve la media, pero achica ~3 °C la
-amplitud térmica; cuantos más días sin llover, más amplitud y más calor relativo. Como contexto, se compara cada año con
-los anteriores (anomalía y lluvia acumulada en el mismo tramo de meses).
+En https://metabase.nexoacademia.org (colección **Grupo06 · Clima de Sídney**), doce visualizaciones ordenadas por una
+pregunta: **¿cómo afecta la lluvia a la temperatura en Sídney?** Respuesta: casi no mueve la temperatura media, pero
+achica ~3 °C la amplitud térmica; cuantos más días sin llover, más amplitud y más calor relativo. Como contexto, se
+compara cada año con los anteriores en el mismo tramo de días (1/1 → ayer), así el tablero cambia en cada corrida.
 Preguntas, SQL, lectura de cada gráfico y la decisión que apoya: [`tablero_metabase.md`](tablero_metabase.md). Capturas:
 `docs/capturas/metabase_tablero_*.png` (Metabase no se versiona: eso es lo que viaja con el repo para rehacerlo).
 
@@ -43,6 +43,8 @@ La observabilidad del pipeline (si corrió, cuánto tardó, si el dato está al 
 ## 3. Features
 
 `feat_clima_diario` es la tabla de features: un modelo dbt **versionado, con tests, definido una sola vez**.
+Además de los features trae dos valores base del día, sin ventana: `temp_media_c` y `lluvia_mm` (este último se agregó
+el 17/11 para que el tablero compare la lluvia entre años en el mismo tramo de días).
 
 | Feature | Definición |
 |---|---|
