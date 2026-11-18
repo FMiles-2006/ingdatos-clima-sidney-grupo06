@@ -30,7 +30,7 @@ from grupo06.fct_clima_mensual order by mes desc limit 12;
 
 ## 2. Tablero
 
-En https://metabase.nexoacademia.org (colección **Grupo06 · Clima de Sídney**), doce visualizaciones ordenadas por una
+En https://metabase.nexoacademia.org (colección **Grupo06 · Clima de Sídney**), catorce visualizaciones ordenadas por una
 pregunta: **¿cómo afecta la lluvia a la temperatura en Sídney?** Respuesta: casi no mueve la temperatura media, pero
 achica ~3 °C la amplitud térmica; cuantos más días sin llover, más amplitud y más calor relativo. Como contexto, se
 compara cada año con los anteriores en el mismo tramo de días (1/1 → ayer), así el tablero cambia en cada corrida.

@@ -2,7 +2,8 @@
 
 **Dónde:** https://metabase.nexoacademia.org → colección **Grupo06 · Clima de Sídney** → panel *Clima de Sídney — grupo06*.
 **Datos:** base `warehouse`, schema `grupo06`, tablas `fct_clima_mensual` y `feat_clima_diario` (gold publicada por el DAG).
-**Solo datos propios:** todo lo que se ve sale de Open-Meteo a través de nuestro pipeline; no se carga nada de afuera.
+**Datos:** las mediciones salen todas de Open-Meteo a través de nuestro pipeline. La única referencia externa es la
+fase de El Niño / La Niña de cada mes (`fase_enso`), que entra al pipeline como seed de dbt (ver más abajo).
 
 Metabase **no se versiona**: este archivo (pregunta, SQL y lectura de cada gráfico) y las capturas son lo que viaja con
 el repositorio para poder rehacerlo. Cada gráfico es una *pregunta* guardada en la colección; el panel las ordena.
@@ -41,15 +42,20 @@ curso viene por encima o por debajo de lo normal.
 | 7 | Temperatura media de cada mes, año por año (mes en curso: parcial) | ¿Cada mes de este año está arriba o abajo de los anteriores? | cada corrida |
 | 8 | ¿Este año viene más cálido? (1/1 → último día cargado, vs. 2022–2025) | ¿Cuánto se aparta cada año de lo normal, en el mismo tramo de días? | cada corrida |
 | 9 | Lluvia acumulada por año (1/1 → último día cargado) | ¿Este año llovió más o menos, en el mismo tramo de días? | cada corrida |
-| 10 | Lluvia acumulada desde el 1 de enero, año por año | ¿Todos los años llueve en la misma época? | cada corrida |
-| 11 | Temperatura de cada mes vs. su promedio 2022–2025 | ¿Qué meses fueron más cálidos o más fríos que lo habitual? | al cerrar cada mes |
-| 12 | Lluvia de cada mes vs. su promedio 2022–2025 | ¿Qué meses fueron más lluviosos o más secos que lo habitual? | al cerrar cada mes |
+| 10 | Lluvia de los últimos 30 días a lo largo del año, año por año | ¿Todos los años llueve en la misma época? | cada corrida |
+| 11 | Temperatura según la fase de El Niño / La Niña | En meses de La Niña / El Niño, ¿hace más frío o más calor que lo habitual? | al cerrar cada mes |
+| 12 | Lluvia según la fase de El Niño / La Niña | En meses de La Niña / El Niño, ¿llueve más o menos que lo habitual? | al cerrar cada mes |
+| 13 | Temperatura de cada mes vs. su promedio 2022–2025, según la fase | ¿Qué meses fueron más cálidos o fríos, y en qué fase estaba el Pacífico? | al cerrar cada mes |
+| 14 | Lluvia de cada mes vs. su promedio 2022–2025, según la fase | ¿Qué meses fueron más lluviosos o secos, y en qué fase? | al cerrar cada mes |
+
+Colores fijos: años (gráficos 7 y 10) 2022 azul, 2023 verde, 2024 amarillo, 2025 naranja, 2026 rosa; fases (11 a 14)
+**La Niña rosa, Neutral gris, El Niño celeste**.
 
 Notas de lectura:
 - **Día con lluvia** = `dias_desde_ultima_lluvia = 0`: ese día cayó ≥ 1 mm.
 - **Amplitud térmica** = máxima − mínima del día. No es una temperatura: por eso en verano (días nublados y húmedos)
   puede ser menor que en invierno.
-- **"Lo normal" / "su promedio"** = el promedio de ese mismo mes calendario en 2022–2025. En los gráficos 11 y 12 el 0 es
+- **"Lo normal" / "su promedio"** = el promedio de ese mismo mes calendario en 2022–2025. En los gráficos 11 a 14 el 0 es
   ese promedio, que cambia de mes a mes (enero ~22 °C, julio ~12 °C): por eso se muestra la diferencia y no la
   temperatura absoluta.
 - Los gráficos 8 y 9 comparan **el mismo tramo de días** en todos los años (del 1/1 al último día cargado). Ningún año
@@ -57,12 +63,18 @@ Notas de lectura:
 - **Límites:** cinco años alcanzan para describir, no para hablar de cambio climático (~30 años). 2026 viene de otra API
   (Historical Forecast en lugar de ERA5), lo que puede introducir un sesgo. Ver la interpretación ENSO más abajo.
 
-### Interpretación: El Niño / La Niña (contexto externo, no está en los datos)
-Los datos muestran un 2022 frío y muy lluvioso y un 2026 cálido. Eso coincide con las fases que declaró la Oficina de
-Meteorología de Australia (BoM): La Niña de 2021-22 a principios de 2023 (en el este de Australia suele traer más lluvia y
-días más frescos) y El Niño desde junio de 2026 (suele traer menos lluvia y más calor). Es una **coincidencia
-consistente**, no una prueba: con cinco años no se puede atribuir causa. La fase ENSO no se cargó al pipeline a propósito,
-para que el tablero muestre solo datos que trae nuestra ingesta.
+### El Niño / La Niña: qué es la columna `fase_enso` y de dónde sale
+- **Qué es:** la fase del fenómeno El Niño-Oscilación del Sur vigente cada mes: La Niña (en el este de Australia suele
+  traer más lluvia y días más frescos), El Niño (menos lluvia y más calor) o Neutral.
+- **De dónde sale:** de las declaraciones de la Oficina de Meteorología de Australia (BoM). Es la única referencia
+  externa del pipeline: un CSV de 9 filas (`dbt/seeds/fases_enso.csv`), con la declaración que justifica cada período.
+  Regla: un mes toma la fase vigente el día 15.
+- **En qué capa entra:** seed → **silver** `stg_fases_enso` (tipos + test propio: los períodos no se pisan) → **gold**
+  `fct_clima_mensual.fase_enso` (join por mes; `accepted_values`; 'Sin clasificar' si el seed no cubre el mes).
+- **Qué muestra (meses completos 2022 → oct-2026):** La Niña −0,48 °C y +19 % de lluvia; El Niño +0,28 °C y −18 %;
+  Neutral +0,31 °C y −14 %. La Niña se distingue con claridad; El Niño se parece a Neutral en temperatura pero es el más
+  seco. Es una **coincidencia consistente** con lo esperado, no una prueba: cinco años no alcanzan para atribuir causa, y
+  "lo normal" (2022–2025) incluye muchos meses de La Niña, lo que corre la referencia hacia lo fresco y lluvioso.
 
 ## SQL de cada gráfico (para rehacerlo: *+ Nuevo → Consulta SQL → warehouse*)
 
@@ -150,32 +162,40 @@ where to_char(f.fecha, 'MMDD') <= to_char(u.ultimo, 'MMDD')
 group by 1 order by 1
 ```
 
-**10 · Líneas** (X = Mes, serie = Año)
+**10 · Líneas** (X = mes del año en decimal, serie = Año)
 ```sql
-with m as (
-  select extract(year from fecha)::int as anio, extract(month from fecha)::int as mes_numero, sum(lluvia_mm) as lluvia
-  from grupo06.feat_clima_diario group by 1, 2
-)
-select (array['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'])[mes_numero] as "Mes",
-       anio::text as "Año",
-       round(sum(lluvia) over (partition by anio order by mes_numero)::numeric, 0) as "Lluvia acumulada (mm)"
-from m order by mes_numero, anio
+select round((extract(month from fecha) + (extract(day from fecha) - 1)
+             / extract(day from (date_trunc('month', fecha) + interval '1 month - 1 day')))::numeric, 3) as "Mes",
+       extract(year from fecha)::int::text as "Año",
+       lluvia_acumulada_30d_mm as "Lluvia de los últimos 30 días (mm)"
+from grupo06.feat_clima_diario
+where fecha >= date '2022-01-30'      -- antes no hay 30 días completos
+order by 1, 2
 ```
 
-**11 · Barras apiladas por signo**
+**11 y 12 · Barras por fase** (una serie por fase para fijar el color). 11 usa `avg(anomalia_temperatura_c)`; 12 usa
+`100 * (sum(lluvia_total_mm) / sum(lluvia_referencia_mm) - 1)`:
 ```sql
-select mes as "Mes",
-       case when anomalia_temperatura_c > 0 then anomalia_temperatura_c end as "Más cálido que su promedio (°C)",
-       case when anomalia_temperatura_c <= 0 then anomalia_temperatura_c end as "Más frío que su promedio (°C)"
-from grupo06.fct_clima_mensual where mes_completo order by mes
+select fase_enso as "Fase",
+       case when fase_enso = 'La Niña' then round(avg(anomalia_temperatura_c)::numeric, 2) end as "La Niña",
+       case when fase_enso = 'Neutral' then round(avg(anomalia_temperatura_c)::numeric, 2) end as "Neutral",
+       case when fase_enso = 'El Niño' then round(avg(anomalia_temperatura_c)::numeric, 2) end as "El Niño"
+from grupo06.fct_clima_mensual
+where mes_completo and fase_enso <> 'Sin clasificar'
+group by fase_enso
+order by case fase_enso when 'La Niña' then 1 when 'Neutral' then 2 else 3 end
 ```
 
-**12 · Barras apiladas por signo**
+**13 y 14 · Barras por mes, coloreadas por fase.** 13 usa `anomalia_temperatura_c`; 14 usa
+`round((lluvia_total_mm - lluvia_referencia_mm)::numeric, 0)`:
 ```sql
 select mes as "Mes",
-       case when lluvia_total_mm >= lluvia_referencia_mm then round((lluvia_total_mm - lluvia_referencia_mm)::numeric, 0) end as "Más lluvia que su promedio (mm)",
-       case when lluvia_total_mm < lluvia_referencia_mm then round((lluvia_total_mm - lluvia_referencia_mm)::numeric, 0) end as "Menos lluvia que su promedio (mm)"
-from grupo06.fct_clima_mensual where mes_completo order by mes
+       case when fase_enso = 'La Niña' then anomalia_temperatura_c end as "La Niña",
+       case when fase_enso = 'Neutral' then anomalia_temperatura_c end as "Neutral",
+       case when fase_enso = 'El Niño' then anomalia_temperatura_c end as "El Niño"
+from grupo06.fct_clima_mensual
+where mes_completo
+order by mes
 ```
 
 ## Por qué carga rápido
