@@ -30,13 +30,20 @@ para el punto −33.7786, 151.2314 (North Shore de Sídney, cerca de Lane Cove),
 No hay histórico en CSV: todo el período se trajo de la API en la primera corrida, y desde entonces el pipeline pide
 solo los días que faltan (watermark).
 
+**Referencias externas (seeds de dbt, versionadas en el repo):** el catálogo de códigos WMO (`codigos_wmo.csv`) y las
+fases de El Niño / La Niña según las declaraciones de la Oficina de Meteorología de Australia (`fases_enso.csv`, 9
+períodos desde nov-2021, cada uno con la declaración que lo respalda). No son mediciones: clasifican los datos. Las fases
+se actualizan a mano cuando el BoM declara un cambio; si el pipeline llega a un mes que el seed no cubre, la gold lo marca
+'Sin clasificar' en lugar de inventar una fase.
+
 **Recorrido.**
 - **Bronze** (Delta Lake en MinIO, `s3://grupo06/bronze/clima_sidney`): la respuesta de la API tal como llega, con los nombres
   originales de las variables, más la fuente (`archive_era5` / `historical_forecast`) y el momento de ingesta. Está versionado:
   cada carga es una versión y se puede leer el estado de cualquier día pasado (time travel).
 - **Silver** (dbt, DuckDB): un registro por día, tipado, sin duplicados, con nombres en español y unidades explícitas.
   Se descarta `rain_sum` (no comparable entre fuentes), se normaliza la dirección del viento y se agregan la estación del año y si fue día lluvioso.
-- **Gold** (dbt → PostgreSQL `warehouse.grupo06`): `fct_clima_mensual` (un registro por mes, con anomalías contra 2022-2025)
+- **Gold** (dbt → PostgreSQL `warehouse.grupo06`): `fct_clima_mensual` (un registro por mes, con anomalías contra 2022-2025
+  y la fase de El Niño / La Niña)
   y `feat_clima_diario` (indicadores por día). Es lo que consulta el tablero de Metabase.
 
 **Linaje** (no dibujado a mano: sale del `manifest.json` que genera dbt, con `python docs/generar_linaje.py`;
@@ -70,6 +77,7 @@ el grafo interactivo está en `dbt docs generate` → `dbt/target/index.html`, p
 | `dias_con_tormenta` | entero | Días cuyo estado predominante fue tormenta eléctrica. **Antes de 2026 siempre es 0** (ERA5 no codifica tormentas) | 3 |
 | `rafaga_maxima_kmh` | decimal | Ráfaga de viento más fuerte del mes, km/h | 72.7 |
 | `radiacion_solar_media_mj_m2` | decimal | Energía solar diaria promedio, MJ/m²: meses más o menos soleados | 21.5 |
+| `fase_enso` | texto | Fase de El Niño / La Niña vigente el día 15 del mes según la Oficina de Meteorología de Australia: 'La Niña' (suele traer más lluvia y días más frescos en el este de Australia), 'El Niño' (menos lluvia y más calor), 'Neutral', o 'Sin clasificar' si el catálogo no cubre el mes. Es una clasificación externa, no una medición | La Niña |
 | `fuente_del_dato` | texto | 'ERA5 (reanálisis)' hasta 2025; 'Historical Forecast (modelo)' desde 2026 | ERA5 (reanálisis) |
 
 ### `feat_clima_diario` — un registro por día (features)
@@ -115,7 +123,7 @@ un gestor de secretos (Connections/Variables de Airflow o un vault).
 
 ## 5 · Calidad y garantías
 
-**Qué se verifica automáticamente** (36 tests de dbt en cada corrida del DAG; si alguno falla, la gold **no se publica**):
+**Qué se verifica automáticamente** (43 tests de dbt en cada corrida del DAG; si alguno falla, la gold **no se publica**):
 - Un registro por día (`unique`, `not_null`) y **serie continua sin huecos**.
 - Temperaturas entre −5 y 50 °C, mínima ≤ media ≤ máxima, lluvia entre 0 y 400 mm/día, dirección del viento 0-359.
 - Valores permitidos en `fuente`, `estacion`, `categoria`; todo `codigo_wmo` existe en el catálogo.

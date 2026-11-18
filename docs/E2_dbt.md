@@ -6,7 +6,7 @@ Proyecto: [`dbt/`](../dbt) · Notebook: [`notebooks/NB04_semana08_dbt_silver_gol
 
 ```bash
 cd ~/work/dags/dbt            # en local: cd dbt
-dbt build --profiles-dir .    # seed + 4 modelos + 36 tests, en orden de dependencias
+dbt build --profiles-dir .    # 2 seeds + 5 modelos + 43 tests, en orden de dependencias
 dbt docs generate --profiles-dir .   # catálogo + linaje en target/index.html
 ```
 Requiere bronze cargado (E1) y el `.env` (o las variables de entorno del Jupyter).
@@ -49,7 +49,7 @@ Un registro por mes (58 meses frente a 1.754 días de silver). Columnas en lengu
 
 ## Tests
 
-36 tests, todos en verde (`dbt build`). Genéricos donde corresponde: `unique` y `not_null` en las claves (`fecha`, `mes`,
+43 tests, todos en verde (`dbt build`). Genéricos donde corresponde: `unique` y `not_null` en las claves (`fecha`, `mes`,
 `codigo_wmo`), `accepted_values` en `fuente`, `estacion` y `categoria`, `relationships` de `codigo_wmo` contra el catálogo.
 
 **Tests propios del dominio**, con lo que detecta cada uno:
