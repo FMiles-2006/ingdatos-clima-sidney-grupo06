@@ -66,7 +66,7 @@ nunca "hoy". *(Verificado: `manual__2026-03-10T09:00` escribió solo el 2026-03-
 
 **Opción D — CLI** (si se tiene acceso al scheduler): `airflow dags backfill pipeline_grupo06 -s 2026-03-01 -e 2026-03-07`.
 
-**¿Qué pasaría si quisiéramos backfillear dos años?** Con corridas diarias serían ~730 corridas × 4 tareas (≈ 2.900
+**¿Qué pasaría si quisiéramos backfillear dos años?** Con corridas diarias serían ~730 corridas × 5 tareas (≈ 3.650
 tareas en un Airflow compartido), 730 pedidos a la API y 730 `dbt build` completos, uno por corrida (los modelos no son
 incrementales). Lo razonable es la opción A, por año: Open-Meteo devuelve un año en un solo pedido, la ingesta ya parte
 por año, y dbt corre una sola vez al final.
@@ -79,7 +79,7 @@ Workflow `CI` en GitHub Actions, en **cada push y cada pull request**. Tres jobs
 |---|---|
 | **Ingesta** | Que `entorno.py` y los scripts compilen + 10 tests de `ci/test_ingesta.py` sin red: primera corrida con las dos APIs, segunda corrida sin pedidos, incremental desde el watermark, backfill sin duplicar, días no publicados, errores transitorios con reintento, errores permanentes sin reintento, respuestas malformadas |
 | **dbt** | Crea una tabla Delta local con `ci/bronze_muestra.csv` (78 días **reales** de nuestro bronze, cruzando el cambio de fuente) → `dbt parse` + `dbt compile` (SQL válido) → `dbt build` (modelos + todos los tests de datos) |
-| **DAG** | Que el DAG importe en **Airflow 2.9.3** (la versión del servidor) sin errores, con las 4 tareas en ese orden, reintentos entre 1 y 3, `catchup=False`, `max_active_runs=1`, y que la extracción use `data_interval_*` |
+| **DAG** | Que el DAG importe en **Airflow 2.9.3** (la versión del servidor) sin errores, con las 5 tareas en ese orden, reintentos entre 1 y 3, `catchup=False`, `max_active_runs=1`, y que la extracción use `data_interval_*` |
 
 **Qué pasa si falla:** la rama `main` está protegida y exige los tres checks en verde para mergear un pull request.
 Un cambio que rompe algo queda bloqueado en su PR (ver [defensa.md](defensa.md) para la demo del CI en rojo).
