@@ -198,7 +198,7 @@ preparar_entorno ──► extraer_bronze ──► dbt_run ──► dbt_test �
 - `dag_id = pipeline_grupo06`: no colisiona con otros grupos; no importa módulos de otros grupos.
 - La DAG **no tiene lógica de extracción ni de transformación** y no contiene credenciales (lo verifica el CI).
 - La extracción usa el intervalo de la corrida, nunca el reloj: así funciona el backfill
-  (`Trigger DAG w/ config` → `{"inicio": "2026-03-01", "fin": "2026-03-08"}`).
+  (botón ▶ → formulario con `inicio` 2026-03-01 y `fin` 2026-03-08).
 - Si `dbt_test` falla, `publicar_gold` no corre: el tablero sigue con la última versión válida.
 
 ---
