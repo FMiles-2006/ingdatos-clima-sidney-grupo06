@@ -3,6 +3,26 @@
 Publicación: [`scripts/publicar_gold.py`](../scripts/publicar_gold.py) · Features: [`dbt/models/marts/feat_clima_diario.sql`](../dbt/models/marts/feat_clima_diario.sql) ·
 Tablero: [`tablero_metabase.md`](tablero_metabase.md) · Governance: [`governance.md`](governance.md) · Notebook: [`NB06`](../notebooks/NB06_semana14_serving_metabase.ipynb)
 
+## Cómo correrlo desde cero
+
+```bash
+git clone https://github.com/FMiles-2006/ingdatos-clima-sidney-grupo06.git
+cd ingdatos-clima-sidney-grupo06
+cp .env.example .env      # completar con las credenciales del grupo (no se versionan)
+make up                   # stack local de la cátedra: MinIO, PostgreSQL, Airflow, Metabase
+make work                 # shell en el contenedor de trabajo; los comandos de abajo van ahí
+```
+
+Dentro del contenedor (en el servidor: terminal de Jupyter, después de NB00):
+
+```bash
+python -m scripts.ingesta                  # E1: bronze
+(cd dbt && dbt build --profiles-dir .)     # E2: silver, gold y features + tests
+python -m scripts.publicar_gold            # gold -> PostgreSQL (correrlo dos veces deja lo mismo)
+```
+
+En producción no hace falta: el DAG `pipeline_grupo06` corre los tres pasos todos los días.
+
 ## 1. Gold en PostgreSQL
 
 `publicar_gold` es la **última tarea del DAG**: el pipeline termina en el warehouse, nadie tiene que apretar un botón.

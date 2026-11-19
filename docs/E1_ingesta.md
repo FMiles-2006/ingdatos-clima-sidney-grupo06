@@ -5,7 +5,7 @@ Código: [`scripts/ingesta.py`](../scripts/ingesta.py) · Notebook: [`notebooks/
 ## Cómo correrlo (desde cero)
 
 **En el servidor de la cátedra** (Jupyter de `grupo06`):
-1. Ejecutar `notebooks/NB00_desplegar_en_servidor.ipynb`: clona el repo en `~/work/dags` y crea el `.env` con las credenciales que JupyterHub ya inyecta.
+1. Ejecutar `notebooks/NB00_desplegar_en_servidor.ipynb`: clona el repo en `~/work/dags`, crea el `.env` con las credenciales que JupyterHub ya inyecta e instala `deltalake` y `pyarrow` si faltan.
 2. En una terminal de Jupyter:
    ```bash
    cd ~/work/dags
@@ -14,7 +14,17 @@ Código: [`scripts/ingesta.py`](../scripts/ingesta.py) · Notebook: [`notebooks/
    ```
    O bien correr `NB02` de punta a punta: hace las dos corridas y verifica con `assert` que no hay duplicados.
 
-**En local** (Docker de la cátedra): `cp .env.example .env && make up && make work`, y dentro del contenedor los mismos comandos.
+**En local** (Docker de la cátedra), desde un clon limpio:
+
+```bash
+git clone https://github.com/FMiles-2006/ingdatos-clima-sidney-grupo06.git
+cd ingdatos-clima-sidney-grupo06
+cp .env.example .env      # completar con las credenciales del grupo (no se versionan)
+make up                   # stack local de la cátedra: MinIO, PostgreSQL, Airflow, Metabase
+make work                 # shell en el contenedor de trabajo; los comandos de abajo van ahí
+```
+
+Y dentro del contenedor, los mismos dos comandos de arriba (`python -m scripts.ingesta`, dos veces).
 
 Los datos quedan en `s3://grupo06/bronze/clima_sidney` (Delta Lake). Para mirarlos: NB03, o la consola de MinIO.
 

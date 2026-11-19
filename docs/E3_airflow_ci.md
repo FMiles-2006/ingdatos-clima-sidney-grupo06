@@ -11,7 +11,16 @@ dentro de esa carpeta (NB00) y el [`.airflowignore`](../.airflowignore) hace que
 ni scripts, ni las carpetas `.ipynb_checkpoints` que crea Jupyter). Para desplegar un cambio: `git push` → ejecutar NB00 (`git pull`).
 Airflow lo toma solo a los ~30 s.
 
-**Local**: `make up` → http://localhost:8080 (admin/admin).
+**Local**, desde un clon limpio:
+
+```bash
+git clone https://github.com/FMiles-2006/ingdatos-clima-sidney-grupo06.git
+cd ingdatos-clima-sidney-grupo06
+cp .env.example .env      # completar con las credenciales del grupo (no se versionan)
+make up                   # stack local de la cátedra: MinIO, PostgreSQL, Airflow, Metabase
+```
+
+Airflow queda en http://localhost:8080 (admin/admin) con el DAG `pipeline_grupo06`.
 
 ## Las tareas y por qué están separadas
 

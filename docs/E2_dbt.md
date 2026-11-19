@@ -4,8 +4,21 @@ Proyecto: [`dbt/`](../dbt) · Notebook: [`notebooks/NB04_semana08_dbt_silver_gol
 
 ## Cómo correr el build (desde cero)
 
+**Desde un clon limpio** (local, Docker de la cátedra):
+
 ```bash
-cd ~/work/dags/dbt            # en local: cd dbt
+git clone https://github.com/FMiles-2006/ingdatos-clima-sidney-grupo06.git
+cd ingdatos-clima-sidney-grupo06
+cp .env.example .env      # completar con las credenciales del grupo (no se versionan)
+make up                   # stack local de la cátedra: MinIO, PostgreSQL, Airflow, Metabase
+make work                 # shell en el contenedor de trabajo; los comandos de abajo van ahí
+```
+
+Dentro del contenedor (en el servidor: terminal de Jupyter, después de NB00):
+
+```bash
+python -m scripts.ingesta     # E1: carga bronze (requisito de este build)
+cd dbt                        # en el servidor: cd ~/work/dags/dbt
 dbt build --profiles-dir .    # 2 seeds + 5 modelos + 44 tests, en orden de dependencias
 dbt docs generate --profiles-dir .   # catálogo + linaje en target/index.html
 ```
