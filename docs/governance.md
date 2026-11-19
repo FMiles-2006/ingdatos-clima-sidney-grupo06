@@ -124,7 +124,7 @@ un gestor de secretos (Connections/Variables de Airflow o un vault).
 
 ## 5 · Calidad y garantías
 
-**Qué se verifica automáticamente** (44 tests de dbt en cada corrida del DAG; si alguno falla, la gold **no se publica**):
+**Qué se verifica automáticamente** (57 tests de dbt en cada corrida del DAG; si alguno falla, la gold **no se publica**):
 - Un registro por día (`unique`, `not_null`) y **serie continua sin huecos**.
 - Temperaturas entre −5 y 50 °C, mínima ≤ media ≤ máxima, lluvia entre 0 y 400 mm/día, dirección del viento 0-359.
 - Valores permitidos en `fuente`, `estacion`, `categoria`; todo `codigo_wmo` existe en el catálogo.
@@ -136,7 +136,10 @@ un gestor de secretos (Connections/Variables de Airflow o un vault).
 **Limitaciones y huecos conocidos.**
 - **Cambio de fuente el 2026-01-01.** ERA5 (reanálisis) y Historical Forecast (modelo) no son idénticos. En diciembre de 2025,
   donde tenemos las dos, la temperatura media y la lluvia coinciden exactamente, pero la máxima difiere en promedio 0,14 °C (hasta 1 °C)
-  y el código de tiempo cambia de vocabulario. Comparaciones entre antes y después de 2026 pueden tener un pequeño sesgo.
+  y el código de tiempo cambia de vocabulario. Comparando las dos fuentes en todo 2023-2025 (los años en que ambas tienen datos),
+  la media y la lluvia siguen siendo idénticas, pero Historical Forecast da en promedio la **máxima +0,54 °C** y la **mínima +1,24 °C**
+  más altas. Por eso en 2026 la temperatura media es comparable con años anteriores, pero la amplitud térmica y el conteo de
+  días de calor tienen un sesgo conocido.
 - **Los datos de 2026 son de modelo, no observaciones.** Pueden diferir de lo que midió una estación del Bureau of Meteorology.
   ERA5 publicará más adelante el reanálisis de 2026; hoy **no** reemplazamos esos días (posible mejora: reprocesar con ERA5 cuando esté).
 - **Un punto de grilla, no una estación.** Representa un área de varios km alrededor del punto; no es "el aeropuerto" ni "Observatory Hill".

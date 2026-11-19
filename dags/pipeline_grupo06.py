@@ -5,8 +5,9 @@ DAG del proyecto integrador — grupo06 · Clima de Sídney (Open-Meteo).
 
   * preparar_entorno : venv propio con deltalake + dbt (el Airflow compartido no los trae).
   * extraer_bronze   : python -m scripts.ingesta  (API -> bronze Delta, incremental).
+                       Una falla permanente (código 2 o 3) no se reintenta.
   * dbt_run          : dbt seed + dbt run         (bronze -> staging/silver -> marts/gold).
-  * dbt_test         : dbt test                   (44 pruebas de calidad).
+  * dbt_test         : dbt test                   (57 pruebas de calidad).
   * publicar_gold    : python -m scripts.publicar_gold (gold DuckDB -> PostgreSQL).
 La DAG solo ORQUESTA: toda la lógica vive en scripts/ y en dbt/.
 
@@ -29,8 +30,10 @@ Intervalo y backfill:
 from __future__ import annotations
 
 import os
+import re
 
 import pendulum
+from airflow.exceptions import AirflowException, AirflowFailException
 from airflow.models.dag import DAG
 from airflow.operators.bash import BashOperator
 
@@ -48,6 +51,28 @@ def _leer_env(base: str) -> dict:
                 k, v = linea.split("=", 1)
                 cfg[k.strip()] = v.strip()
     return cfg
+
+
+class BashSinReintentarPermanentes(BashOperator):
+    """BashOperator que NO reintenta las fallas permanentes.
+
+    scripts/ingesta.py sale con 1 si la falla es transitoria (API caída, timeout, 429/5xx),
+    con 2 si es permanente (HTTP 4xx, respuesta malformada) y con 3 si falta configuración.
+    Reintentar una falla permanente no sirve: con 2 o 3 la tarea falla de inmediato
+    (AirflowFailException) en lugar de esperar 5 + 10 minutos de reintentos inútiles.
+    """
+
+    CODIGOS_PERMANENTES = (2, 3)
+
+    def execute(self, context):
+        try:
+            return super().execute(context)
+        except AirflowException as e:
+            m = re.search(r"exit code (\d+)", str(e))
+            if m and int(m.group(1)) in self.CODIGOS_PERMANENTES:
+                raise AirflowFailException(
+                    f"Falla permanente (código {m.group(1)}): no se reintenta, hay que revisar el log") from e
+            raise
 
 
 _cfg = _leer_env(CURSO)
@@ -104,7 +129,7 @@ with DAG(
         execution_timeout=pendulum.duration(minutes=20),
     )
 
-    extraer_bronze = BashOperator(
+    extraer_bronze = BashSinReintentarPermanentes(
         task_id="extraer_bronze",
         bash_command=f"{_prep} && {PY} -m scripts.ingesta --inicio {INICIO} --fin {FIN}",
         execution_timeout=pendulum.duration(minutes=15),
@@ -114,7 +139,7 @@ with DAG(
 
     dbt_run = BashOperator(
         task_id="dbt_run",
-        # seed: catálogo de códigos WMO (estático, idempotente). run: staging + marts.
+        # seed: catálogos de referencia (códigos WMO y fases de El Niño). run: staging + marts.
         bash_command=f"{_dbt} seed --profiles-dir . --no-use-colors && {DBT} run --profiles-dir . --no-use-colors",
         # dbt es determinístico: un único reintento cubre fallas de infraestructura
         # (archivo DuckDB bloqueado, MinIO caído un instante).

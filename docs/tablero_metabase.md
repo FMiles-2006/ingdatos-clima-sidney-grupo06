@@ -1,7 +1,8 @@
 # Tablero "Clima de Sídney — grupo06" (Metabase)
 
 **Dónde:** https://metabase.nexoacademia.org → colección **Grupo06 · Clima de Sídney** → panel *Clima de Sídney — grupo06*.
-**Datos:** base `warehouse`, schema `grupo06`, tablas `fct_clima_mensual` y `feat_clima_diario` (gold publicada por el DAG).
+**Datos:** base `warehouse`, schema `grupo06` (gold publicada por el DAG): `fct_clima_mensual`, `feat_clima_diario` y
+los 4 agregados del tablero `agg_estacion_lluvia`, `agg_dias_sin_lluvia`, `agg_anio_a_la_fecha` y `agg_fase_enso`.
 **Datos:** las mediciones salen todas de Open-Meteo a través de nuestro pipeline. La única referencia externa es la
 fase de El Niño / La Niña de cada mes (`fase_enso`), que entra al pipeline como seed de dbt (ver más abajo).
 
@@ -39,7 +40,7 @@ curso viene por encima o por debajo de lo normal.
 | 1–3 | Último día cargado · Temperatura media del último día · Lluvia de los últimos 30 días | ¿Hasta qué día hay datos y cómo fue ese día? | cada corrida |
 | 4 | ¿Los días de lluvia son más frescos? Temperatura media por estación | ¿Cambia la temperatura media en días con lluvia vs. secos? | cada corrida |
 | 5 | ¿Cuánto se achica la amplitud térmica (máxima − mínima) cuando llueve? | ¿Cambia la diferencia entre máxima y mínima? | cada corrida |
-| 6 | Cuantos más días sin llover, ¿más calor y más amplitud? | ¿Las rachas secas traen días más extremos? | cada corrida |
+| 6 | ¿Más días sin llover traen más calor y más amplitud? | ¿Las rachas secas traen días más extremos? | cada corrida |
 | 7 | Temperatura media de cada mes, año por año (mes en curso: parcial) | ¿Cada mes de este año está arriba o abajo de los anteriores? | cada corrida |
 | 8 | ¿Este año viene más cálido? (1/1 → último día cargado, vs. 2022–2025) | ¿Cuánto se aparta cada año de lo normal, en el mismo tramo de días? | cada corrida |
 | 9 | Lluvia acumulada por año (1/1 → último día cargado) | ¿Este año llovió más o menos, en el mismo tramo de días? | cada corrida |
@@ -90,48 +91,33 @@ select temp_media_c as "Temperatura media (°C)" from grupo06.feat_clima_diario 
 select lluvia_acumulada_30d_mm as "Lluvia 30 días (mm)" from grupo06.feat_clima_diario order by fecha desc limit 1;
 ```
 
+Los gráficos 4, 5, 6, 8, 9, 11 y 12 leen un **agregado de dbt** (`agg_*`): el cálculo vive en el pipeline, con
+tests, y Metabase solo elige columnas. Los demás leen directo `feat_clima_diario` o `fct_clima_mensual`.
+
 **4 · Barras agrupadas** (eje Y desde 10 °C para que se vean las diferencias; el promedio de la estación va como
 columna extra que aparece al pasar el mouse: *Visualización → Mostrar más columnas en el tooltip*)
 ```sql
-with d as (
-  select case when extract(month from fecha) in (12,1,2) then 1 when extract(month from fecha) in (3,4,5) then 2
-              when extract(month from fecha) in (6,7,8) then 3 else 4 end as orden,
-         dias_desde_ultima_lluvia = 0 as llovio,
-         temp_media_c
-  from grupo06.feat_clima_diario
-  where dias_desde_ultima_lluvia is not null
-)
-select (array['Verano','Otoño','Invierno','Primavera'])[orden] as "Estación",
-       round(avg(temp_media_c) filter (where not llovio)::numeric, 1) as "Día seco",
-       round(avg(temp_media_c) filter (where llovio)::numeric, 1)     as "Día con lluvia",
-       round(avg(temp_media_c)::numeric, 1)                           as "Promedio de la estación (°C)"
-from d group by orden order by orden
+select estacion as "Estación",
+       temp_media_dia_seco_c       as "Día seco",
+       temp_media_dia_con_lluvia_c as "Día con lluvia",
+       temp_media_estacion_c       as "Promedio de la estación (°C)"
+from grupo06.agg_estacion_lluvia order by orden_estacion
 ```
 
-**5 · Barras agrupadas** (X = Estación, serie = Condición)
+**5 · Barras agrupadas** (X = Estación, una serie por condición)
 ```sql
-with d as (
-  select case when extract(month from fecha) in (12,1,2) then 1 when extract(month from fecha) in (3,4,5) then 2
-              when extract(month from fecha) in (6,7,8) then 3 else 4 end as orden,
-         case when dias_desde_ultima_lluvia = 0 then 'Día con lluvia' else 'Día seco' end as condicion,
-         amplitud_termica_c
-  from grupo06.feat_clima_diario
-  where dias_desde_ultima_lluvia is not null
-)
-select (array['Verano','Otoño','Invierno','Primavera'])[orden] as "Estación", condicion as "Condición",
-       round(avg(amplitud_termica_c)::numeric, 1) as "Amplitud térmica promedio (°C)"
-from d group by orden, condicion order by orden, condicion
+select estacion as "Estación",
+       amplitud_dia_seco_c       as "Día seco",
+       amplitud_dia_con_lluvia_c as "Día con lluvia"
+from grupo06.agg_estacion_lluvia order by orden_estacion
 ```
 
-**6 · Combo** (barras = amplitud; línea en eje derecho = temperatura vs. media de 30 días)
+**6 · Combo** (barras = amplitud, eje izquierdo; línea = temperatura vs. media de 30 días, eje derecho; cada eje con su título)
 ```sql
-select case when dias_desde_ultima_lluvia >= 7 then '7 o más' else dias_desde_ultima_lluvia::text end as "Días desde la última lluvia",
-       round(avg(amplitud_termica_c)::numeric, 1) as "Amplitud térmica promedio (°C)",
-       round(avg(desvio_vs_media_30d_c)::numeric, 2) as "Temperatura vs. media de 30 días (°C)"
-from grupo06.feat_clima_diario
-where dias_desde_ultima_lluvia is not null
-group by 1, least(dias_desde_ultima_lluvia, 7)
-order by least(dias_desde_ultima_lluvia, 7)
+select dias_sin_lluvia_etiqueta as "Días desde la última lluvia",
+       amplitud_media_c         as "Amplitud térmica promedio (°C)",
+       temp_vs_media_30d_c      as "Temperatura vs. media de 30 días (°C)"
+from grupo06.agg_dias_sin_lluvia order by dias_sin_lluvia
 ```
 
 **7 · Líneas** (X = Mes, serie = Año)
@@ -145,27 +131,16 @@ order by mes_numero, anio
 
 **8 · Barras apiladas** (dos series para colorear por signo)
 ```sql
-with u as (select max(fecha) as ultimo from grupo06.feat_clima_diario),
-por_anio as (
-  select extract(year from f.fecha)::int as anio, avg(f.temp_media_c) as temp
-  from grupo06.feat_clima_diario f, u
-  where to_char(f.fecha, 'MMDD') <= to_char(u.ultimo, 'MMDD')
-  group by 1
-),
-ref as (select avg(temp) as temp_ref from por_anio where anio between 2022 and 2025)
-select p.anio::text as "Año",
-       case when p.temp - r.temp_ref > 0 then round((p.temp - r.temp_ref)::numeric, 2) end as "Más cálido (°C)",
-       case when p.temp - r.temp_ref <= 0 then round((p.temp - r.temp_ref)::numeric, 2) end as "Más frío (°C)"
-from por_anio p, ref r order by p.anio
+select anio::text as "Año",
+       case when anomalia_temperatura_c > 0  then anomalia_temperatura_c end as "Más cálido (°C)",
+       case when anomalia_temperatura_c <= 0 then anomalia_temperatura_c end as "Más frío (°C)"
+from grupo06.agg_anio_a_la_fecha order by anio
 ```
 
 **9 · Barras**
 ```sql
-with u as (select max(fecha) as ultimo from grupo06.feat_clima_diario)
-select extract(year from f.fecha)::int::text as "Año", round(sum(f.lluvia_mm)::numeric, 0) as "Lluvia (mm)"
-from grupo06.feat_clima_diario f, u
-where to_char(f.fecha, 'MMDD') <= to_char(u.ultimo, 'MMDD')
-group by 1 order by 1
+select anio::text as "Año", lluvia_tramo_mm as "Lluvia (mm)"
+from grupo06.agg_anio_a_la_fecha order by anio
 ```
 
 **10 · Líneas** (X = mes del año en decimal, serie = Año)
@@ -179,17 +154,14 @@ where fecha >= date '2022-01-30'      -- antes no hay 30 días completos
 order by 1, 2
 ```
 
-**11 y 12 · Barras por fase** (una serie por fase para fijar el color). 11 usa `avg(anomalia_temperatura_c)`; 12 usa
-`100 * (sum(lluvia_total_mm) / sum(lluvia_referencia_mm) - 1)`:
+**11 y 12 · Barras por fase** (una serie por fase para fijar el color). 11 usa `anomalia_temperatura_c`; 12 usa
+`lluvia_vs_normal_pct`:
 ```sql
 select fase_enso as "Fase",
-       case when fase_enso = 'La Niña' then round(avg(anomalia_temperatura_c)::numeric, 2) end as "La Niña",
-       case when fase_enso = 'Neutral' then round(avg(anomalia_temperatura_c)::numeric, 2) end as "Neutral",
-       case when fase_enso = 'El Niño' then round(avg(anomalia_temperatura_c)::numeric, 2) end as "El Niño"
-from grupo06.fct_clima_mensual
-where mes_completo and fase_enso <> 'Sin clasificar'
-group by fase_enso
-order by case fase_enso when 'La Niña' then 1 when 'Neutral' then 2 else 3 end
+       case when fase_enso = 'La Niña' then anomalia_temperatura_c end as "La Niña",
+       case when fase_enso = 'Neutral' then anomalia_temperatura_c end as "Neutral",
+       case when fase_enso = 'El Niño' then anomalia_temperatura_c end as "El Niño"
+from grupo06.agg_fase_enso order by orden_fase
 ```
 
 **13 y 14 · Barras por mes, coloreadas por fase.** 13 usa `anomalia_temperatura_c`; 14 usa
@@ -205,9 +177,10 @@ order by mes
 ```
 
 ## Por qué carga rápido
-Todas las consultas leen tablas **ya calculadas por dbt**: ~60 filas mensuales y ~1.800 diarias, con los features
-(amplitud, días desde la última lluvia, desvío vs. media de 30 días, lluvia del día) ya resueltos. Metabase solo agrupa
-pocas filas; no recalcula nada que deba hacer el pipeline.
+Todas las consultas leen tablas **ya calculadas por dbt**. Los agregados (`agg_*`, de 3 a 5 filas cada uno) se
+calculan en el pipeline y tienen tests; Metabase solo los muestra. Los gráficos de líneas y por mes leen
+`feat_clima_diario` (~1.800 filas) y `fct_clima_mensual` (~60), con los features ya resueltos. La regla: ninguna lógica de
+negocio vive solo en Metabase, porque Metabase no se versiona.
 
 ## Metabase y Grafana: cada uno en su rol
 Metabase responde preguntas **sobre el clima** (negocio). La salud del **pipeline** (si corrió, cuánto tardó, si el dato

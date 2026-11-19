@@ -1,0 +1,29 @@
+// Diagrama de arquitectura del pipeline grupo06.
+// Regenerar:  dot -Tpng -Gdpi=150 docs/arquitectura.dot -o docs/capturas/arquitectura.png
+digraph arquitectura {
+  rankdir=LR; bgcolor=white; pad=0.3; nodesep=0.5; ranksep=0.8;
+  node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=13, color="#8a94a6", penwidth=1];
+  edge [color="#6b7280", fontname="Helvetica", fontsize=10];
+
+  api [label="Open-Meteo\nArchive (≤2025)\nHistorical Forecast (2026→)", fillcolor="#e0f2fe"];
+  subgraph cluster_minio { label="MinIO (lake)"; fontname="Helvetica"; fontsize=11; color="#d1d5db";
+    bronze [label="bronze\nDelta Lake\n(crudo, con historial)", fillcolor="#fde68a"]; }
+  subgraph cluster_dbt { label="dbt + DuckDB"; fontname="Helvetica"; fontsize=11; color="#d1d5db";
+    seeds  [label="seeds\ncódigos WMO\nfases El Niño", fillcolor="#f3f4f6"];
+    silver [label="silver\nstg_clima_diario\n(limpio, tipado)", fillcolor="#e5e7eb"];
+    gold   [label="gold\nfct_clima_mensual\nfeat_clima_diario\n+ 4 agregados agg_* del tablero", fillcolor="#fde047"]; }
+  pg  [label="PostgreSQL\nwarehouse.grupo06", fillcolor="#dbeafe"];
+  mb  [label="Metabase\ntablero (14 gráficos)", fillcolor="#dcfce7"];
+  gf  [label="Grafana\nmonitoreo del pipeline", fillcolor="#dcfce7"];
+  af  [shape=note, label="Airflow · pipeline_grupo06\n06:00 diario · reintentos · backfill", fillcolor="#fef3c7"];
+  ci  [shape=note, label="GitHub Actions CI\ningesta · dbt · DAG\nbloquea merges", fillcolor="#fce7f3"];
+
+  api -> bronze [label="extraer_bronze\nwatermark + MERGE"];
+  bronze -> silver [label="dbt_run"];
+  seeds -> silver;
+  silver -> gold [label="dbt_run\ny después dbt_test ✓"];
+  gold -> pg [label="publicar_gold\n(transacción)"];
+  pg -> mb; pg -> gf [style=dashed];
+  af -> bronze [style=dotted, arrowhead=none];
+  ci -> silver [style=dotted, arrowhead=none];
+}

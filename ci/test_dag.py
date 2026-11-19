@@ -45,3 +45,22 @@ def test_dag_solo_orquesta_y_sin_credenciales():
     assert " run " in dag.get_task("dbt_run").bash_command
     assert " test " in dag.get_task("dbt_test").bash_command
     assert "-m scripts.publicar_gold" in dag.get_task("publicar_gold").bash_command
+
+
+def test_falla_permanente_no_se_reintenta():
+    """Con código 2/3 la extracción falla sin reintentos; con 1 (transitoria) Airflow reintenta."""
+    from unittest import mock
+
+    import pytest
+    from airflow.exceptions import AirflowException, AirflowFailException
+    from airflow.operators.bash import BashOperator
+
+    bag = DagBag(dag_folder=os.path.join(RAIZ, "dags"), include_examples=False)
+    tarea = next(iter(bag.dags.values())).get_task("extraer_bronze")
+    for codigo, esperada in ((2, AirflowFailException), (3, AirflowFailException), (1, AirflowException)):
+        error = AirflowException(f"Bash command failed. The command returned a non-zero exit code {codigo}.")
+        with mock.patch.object(BashOperator, "execute", side_effect=error):
+            with pytest.raises(esperada) as info:
+                tarea.execute({})
+        if codigo == 1:
+            assert not isinstance(info.value, AirflowFailException)

@@ -19,7 +19,7 @@ Dentro del contenedor (en el servidor: terminal de Jupyter, después de NB00):
 ```bash
 python -m scripts.ingesta     # E1: carga bronze (requisito de este build)
 cd dbt                        # en el servidor: cd ~/work/dags/dbt
-dbt build --profiles-dir .    # 2 seeds + 5 modelos + 44 tests, en orden de dependencias
+dbt build --profiles-dir .    # 2 seeds + 9 modelos + 57 tests, en orden de dependencias
 dbt docs generate --profiles-dir .   # catálogo + linaje en target/index.html
 ```
 Requiere bronze cargado (E1) y el `.env` (o las variables de entorno del Jupyter).
@@ -65,9 +65,15 @@ Un registro por mes (59 meses frente a ~1.780 días de silver, al 17/11/2026). C
 `temperatura_media_c`, `anomalia_temperatura_c`, `lluvia_total_mm` frente a `lluvia_referencia_mm`, `dias_con_lluvia`,
 `dias_de_calor_30c`, `mes_completo`, `fase_enso`, `fuente_del_dato`, etc. (todas descriptas en `models/marts/schema.yml`).
 
+**Agregados del tablero (`agg_*`)**: cuatro tablas chicas que salen de las dos anteriores y responden, cada una, un
+gráfico de Metabase: temperatura y amplitud por estación en días secos vs. con lluvia (`agg_estacion_lluvia`), efecto
+de las rachas secas (`agg_dias_sin_lluvia`), cada año en el mismo tramo 1/1 → último día (`agg_anio_a_la_fecha`) y
+temperatura y lluvia según la fase de El Niño (`agg_fase_enso`). Se sumaron al cierre para que la lógica del tablero
+viva en dbt, versionada y con tests, y no en SQL suelto dentro de Metabase.
+
 ## Tests
 
-44 tests, todos en verde (`dbt build`). Genéricos donde corresponde: `unique` y `not_null` en las claves (`fecha`, `mes`,
+57 tests, todos en verde (`dbt build`; en la entrega 2 eran 44, los 13 nuevos cubren los agregados del tablero). Genéricos donde corresponde: `unique` y `not_null` en las claves (`fecha`, `mes`,
 `codigo_wmo`), `accepted_values` en `fuente`, `estacion` y `categoria`, `relationships` de `codigo_wmo` contra el catálogo.
 
 **Tests propios del dominio**, con lo que detecta cada uno:

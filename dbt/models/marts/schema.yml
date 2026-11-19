@@ -108,3 +108,100 @@ models:
         description: "Días transcurridos desde el último día con 1 mm o más de lluvia (0 = llovió hoy). Nulo si todavía no llovió en la serie."
       - name: fuente
         description: "Origen del dato del día (archive_era5 / historical_forecast)."
+
+  # ---------------------------------------------------------------------------
+  # Agregados para el tablero (GOLD): Metabase solo los lee y los grafica.
+  # El cálculo vive acá, versionado y con tests, no en las preguntas de Metabase.
+  # ---------------------------------------------------------------------------
+  - name: agg_estacion_lluvia
+    description: >
+      Una fila por estación. ¿Cambia la temperatura cuando llueve? Compara días con lluvia
+      (>= 1 mm) y días secos: temperatura media y amplitud térmica (máxima − mínima).
+    columns:
+      - name: orden_estacion
+        description: "Orden para graficar: 1 = Verano ... 4 = Primavera."
+      - name: estacion
+        description: "Estación del hemisferio sur."
+        data_tests:
+          - not_null
+          - unique
+          - accepted_values:
+              arguments:
+                values: ['Verano', 'Otoño', 'Invierno', 'Primavera']
+      - name: temp_media_dia_seco_c
+        description: "Temperatura media promedio de los días secos de la estación, en °C."
+        data_tests: [not_null]
+      - name: temp_media_dia_con_lluvia_c
+        description: "Temperatura media promedio de los días con lluvia de la estación, en °C."
+        data_tests: [not_null]
+      - name: temp_media_estacion_c
+        description: "Temperatura media promedio de todos los días de la estación, en °C."
+      - name: amplitud_dia_seco_c
+        description: "Diferencia promedio entre máxima y mínima en días secos, en °C."
+      - name: amplitud_dia_con_lluvia_c
+        description: "Diferencia promedio entre máxima y mínima en días con lluvia, en °C."
+      - name: dias_secos
+        description: "Cantidad de días secos usados en el promedio."
+      - name: dias_con_lluvia
+        description: "Cantidad de días con lluvia usados en el promedio."
+
+  - name: agg_dias_sin_lluvia
+    description: >
+      Una fila por cantidad de días desde la última lluvia (0 = llovió ese día; 7 agrupa 7 o más).
+      ¿Las rachas secas traen días más extremos y más cálidos que su media reciente?
+    columns:
+      - name: dias_sin_lluvia
+        description: "Días desde la última lluvia (0 a 7; 7 = siete o más)."
+        data_tests: [not_null, unique]
+      - name: dias_sin_lluvia_etiqueta
+        description: "La misma cantidad como texto para el eje del gráfico ('7 o más')."
+      - name: amplitud_media_c
+        description: "Diferencia promedio entre máxima y mínima del día, en °C."
+      - name: temp_vs_media_30d_c
+        description: "Cuánto más cálido (+) o más fresco (−) que su promedio de 30 días fue el día, en °C."
+      - name: dias
+        description: "Días que caen en ese grupo."
+
+  - name: agg_anio_a_la_fecha
+    description: >
+      Una fila por año, siempre en el mismo tramo: del 1/1 al día y mes del último dato cargado.
+      ¿Este año viene más cálido o más lluvioso que los anteriores? Se recalcula en cada corrida.
+    columns:
+      - name: anio
+        description: "Año."
+        data_tests: [not_null, unique]
+      - name: tramo_hasta
+        description: "Último día (dd/mm) del tramo comparado, igual para todos los años."
+      - name: dias
+        description: "Días con datos del año dentro del tramo."
+      - name: temp_media_tramo_c
+        description: "Temperatura media del año en el tramo, en °C."
+        data_tests: [not_null]
+      - name: anomalia_temperatura_c
+        description: >
+          Temperatura del tramo menos el promedio 2022-2025 del mismo tramo, en °C (+ = más cálido).
+          Queda vacía solo si no hay ningún año de referencia en el tramo (por ejemplo, la muestra corta del CI).
+      - name: lluvia_tramo_mm
+        description: "Lluvia total del año en el tramo, en mm."
+
+  - name: agg_fase_enso
+    description: >
+      Una fila por fase de El Niño / La Niña. En los meses de cada fase, ¿cuánto se apartaron
+      la temperatura y la lluvia de lo habitual para ese mes? Solo meses completos y clasificados.
+    columns:
+      - name: orden_fase
+        description: "Orden para graficar: 1 = La Niña, 2 = Neutral, 3 = El Niño."
+      - name: fase_enso
+        description: "Fase de El Niño-Oscilación del Sur."
+        data_tests:
+          - not_null
+          - unique
+          - accepted_values:
+              arguments:
+                values: ['La Niña', 'Neutral', 'El Niño']
+      - name: meses
+        description: "Meses completos de esa fase en la serie."
+      - name: anomalia_temperatura_c
+        description: "Promedio de la anomalía de temperatura de esos meses, en °C."
+      - name: lluvia_vs_normal_pct
+        description: "Lluvia de esos meses frente a su promedio 2022-2025, en % (+ = más lluvioso)."

@@ -1,4 +1,4 @@
-# README_GRUPO · Actividad integradora (scripts + dbt + Airflow)
+# Actividad integradora (scripts + dbt + Airflow)
 
 | | |
 |---|---|
