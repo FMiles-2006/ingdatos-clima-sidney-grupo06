@@ -61,12 +61,15 @@ Demo: `NB02`, sección 4 (dos corridas seguidas; la segunda deja igual las filas
 | La API no responde / tarda (timeout 5 s de conexión, 30 s de lectura) | Reintenta hasta 3 veces, con espera de 2 s y 4 s | Transitoria |
 | HTTP 429 (rate limit) o 5xx | Igual: reintenta con backoff | Transitoria |
 | Sigue fallando después de 3 intentos | `ErrorTransitorio`, sale con código 1; en Airflow, la tarea se reintenta más tarde (5 y 10 min) | Transitoria |
-| HTTP 400/401/403/404 (parámetro inválido, URL mal) | `ErrorPermanente` inmediato, **sin reintentar**: repetir da lo mismo | Permanente |
+| HTTP 400/401/403/404 (parámetro inválido, URL mal) | `ErrorPermanente` inmediato, **sin reintentar**: repetir da lo mismo. Sale con código 2 y Airflow **tampoco** reintenta la tarea (falla de una para revisar el log) | Permanente |
 | 200 pero el cuerpo no es JSON | `ErrorPermanente` | Datos raros |
 | JSON sin bloque `daily`, faltan variables, columnas de distinto largo | `ErrorPermanente` (se verifica **antes** de convertir a tabla) | Datos raros |
 | Fechas inválidas, repetidas o fuera del rango pedido | `ErrorPermanente` | Datos raros |
 | Unidad de temperatura distinta de °C | `ErrorPermanente` (un cambio de unidad arruinaría la serie sin dar error) | Datos raros |
 | Días con **todas** las mediciones nulas (el origen todavía no los publicó) | No se escriben y el corte se hace en el primer hueco: el watermark no avanza y la próxima corrida los vuelve a pedir | Esperable |
+
+Códigos de salida: **1** = transitoria (Airflow reintenta a los 5 y 10 min), **2** = permanente y **3** = falta configuración
+(`.env` incompleto o intervalo inválido). Con 2 o 3 la tarea de Airflow falla sin reintentos: esperar no lo arregla.
 
 Con cualquier error, **no se escribe nada**: se valida todo antes de escribir y la escritura Delta es atómica.
 

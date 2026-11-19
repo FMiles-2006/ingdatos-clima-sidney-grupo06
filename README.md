@@ -92,13 +92,13 @@ cd dbt && dbt build --profiles-dir .     # silver + gold + tests
 cd .. && python -m scripts.publicar_gold # gold -> PostgreSQL
 ```
 
-## Estado (verificado en el servidor de la cátedra el 17/11/2026)
+## Estado (verificado en el servidor de la cátedra el 19/11/2026)
 
 | Parte | Estado |
 |---|---|
 | Ingesta (E1) | ✅ bronze completo 2022-01-01 → ayer; la 2.ª corrida del día no pide nada a la API |
 | dbt (E2) | ✅ `dbt build`: 2 seeds, 9 modelos (5 del pipeline + 4 agregados del tablero), 57 tests en verde sobre la tabla Delta real |
-| Airflow (E3) | ✅ `pipeline_grupo06` corre solo todos los días a las 06:00 (ART); todas las corridas del 26/10 al 16/11 en verde y sin reintentos; backfill por rango y por fecha lógica probado |
+| Airflow (E3) | ✅ `pipeline_grupo06` corre solo todos los días a las 06:00 (ART); todas las corridas del 26/10 al 19/11 en verde; backfill por rango desde el formulario del botón ▶ (sin duplicar) y por fecha lógica probado; las fallas permanentes no se reintentan |
 | CI (E3) | ✅ 3 jobs en verde; `main` protegida; rama `demo/ci-rojo` para mostrar el CI bloqueando |
 | Gold en PostgreSQL (E4) | ✅ `grupo06.fct_clima_mensual`, `grupo06.feat_clima_diario` (sin huecos ni duplicados) y los 4 agregados `grupo06.agg_*` que lee el tablero; publicación repetible |
 | Tablero Metabase (E4) | ✅ colección **Grupo06 · Clima de Sídney** en https://metabase.nexoacademia.org — preguntas y capturas en [docs/tablero_metabase.md](docs/tablero_metabase.md) |

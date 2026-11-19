@@ -45,7 +45,8 @@ avisa que hay que actualizar el catálogo. **Responsable de mantenerlo:** el mis
   Se descarta `rain_sum` (no comparable entre fuentes), se normaliza la dirección del viento y se agregan la estación del año y si fue día lluvioso.
 - **Gold** (dbt → PostgreSQL `warehouse.grupo06`): `fct_clima_mensual` (un registro por mes, con anomalías contra 2022-2025
   y la fase de El Niño / La Niña)
-  y `feat_clima_diario` (indicadores por día). Es lo que consulta el tablero de Metabase.
+  y `feat_clima_diario` (indicadores por día), más cuatro agregados chicos que lee el tablero (`agg_estacion_lluvia`,
+  `agg_dias_sin_lluvia`, `agg_anio_a_la_fecha`, `agg_fase_enso`). Es lo que consulta el tablero de Metabase.
 
 **Linaje** (no dibujado a mano: sale del `manifest.json` que genera dbt, con `python docs/generar_linaje.py`;
 el grafo interactivo está en `dbt docs generate` → `dbt/target/index.html`, pestaña *Lineage*):
@@ -100,6 +101,18 @@ Cada fila es lo que se sabe **al cierre del día `fecha`**; ninguna columna usa 
 | `desvio_vs_media_30d_c` | decimal | Cuánto se aparta el día de su promedio de 30 días, °C | −0.7 |
 | `dias_desde_ultima_lluvia` | entero | Días desde el último día con ≥ 1 mm (0 = llovió hoy; vacío si no llovió desde el inicio de la serie) | 3 |
 | `fuente` | texto | archive_era5 / historical_forecast | historical_forecast |
+
+### Agregados del tablero (`agg_*`) — una tabla por gráfico
+
+Salen de las dos tablas anteriores, se recalculan en cada corrida y tienen tests (clave única y no nula, valores permitidos).
+"Día con lluvia" = cayó ≥ 1 mm; "lo normal" = promedio 2022-2025.
+
+| Tabla | Un registro por | Columnas principales |
+|---|---|---|
+| `agg_estacion_lluvia` | estación del año (4) | `temp_media_dia_seco_c`, `temp_media_dia_con_lluvia_c`, `temp_media_estacion_c`, `amplitud_dia_seco_c`, `amplitud_dia_con_lluvia_c`, `dias_secos`, `dias_con_lluvia` |
+| `agg_dias_sin_lluvia` | días desde la última lluvia (0 a "7 o más") | `amplitud_media_c`, `temp_vs_media_30d_c` (°C sobre la media de 30 días), `dias` |
+| `agg_anio_a_la_fecha` | año, en el mismo tramo 1/1 → último día cargado | `tramo_hasta`, `dias`, `temp_media_tramo_c`, `anomalia_temperatura_c` (vs. 2022-2025), `lluvia_tramo_mm` |
+| `agg_fase_enso` | fase de El Niño / La Niña (3) | `meses`, `anomalia_temperatura_c`, `lluvia_vs_normal_pct` (% de lluvia sobre lo normal) |
 
 ### Campos del origen con significado dudoso
 - **`weather_code`** (bronze/silver): Open-Meteo lo describe como "el código WMO más severo del día", pero no documenta el

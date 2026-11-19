@@ -31,7 +31,7 @@ preparar_entorno ──► extraer_bronze ──► dbt_run ──► dbt_test �
 | Tarea | Qué hace | Reintentos | Por qué es una tarea aparte |
 |---|---|---|---|
 | `preparar_entorno` | Crea **una sola vez** un venv propio (`/tmp/venv_grupo06`) con deltalake, duckdb, dbt-duckdb; si ya existe para esa versión de `requirements-pipeline.txt`, tarda < 1 s | 2 × (5, 10 min) | El Airflow compartido no trae esas librerías e instalar en su Python podría romper a otros grupos. Si falla es **infraestructura** (pip/red), no datos: se diagnostica distinto |
-| `extraer_bronze` | `python -m scripts.ingesta --inicio <data_interval_start> --fin <data_interval_end>` | 2 × (5, 10 min) | Depende de una API externa: es la falla transitoria más probable. Reintentarla no repite dbt ni la publicación |
+| `extraer_bronze` | `python -m scripts.ingesta --inicio <data_interval_start> --fin <data_interval_end>` | 2 × (5, 10 min), **solo si la falla es transitoria** | Depende de una API externa: es la falla transitoria más probable. Reintentarla no repite dbt ni la publicación. Si la ingesta sale con código 2 o 3 (falla permanente o de configuración), la tarea falla sin reintentos (`BashSinReintentarPermanentes`) |
 | `dbt_run` | `dbt seed` + `dbt run`: staging (silver) + marts (gold) + features | 1 × 2 min | Es determinística: reintentar da lo mismo. El único reintento cubre fallas de infraestructura (archivo DuckDB bloqueado) |
 | `dbt_test` | `dbt test`: 57 pruebas de calidad | 1 × 2 min | Separada de `dbt_run` para que el log muestre si falló la **construcción** o la **calidad** de los datos |
 | `publicar_gold` | DuckDB → PostgreSQL (DELETE + INSERT en una transacción) | 2 × 2 min | Toca el warehouse que ve Metabase. **Solo corre si `dbt_test` pasó** (trigger rule `all_success`): un test en rojo no llega al tablero |
@@ -43,8 +43,10 @@ proceso propio con el `.env` del grupo, así un Airflow compartido no mezcla cre
 ### ¿Por qué 2 reintentos, 5 minutos y backoff?
 La falla que esperamos que el reintento resuelva es que **Open-Meteo o MinIO no respondan un rato**. La ingesta ya
 reintenta 3 veces en segundos (2 s, 4 s); si sigue fallando, Airflow espera 5 y después 10 minutos: cubre una caída de
-~15 minutos sin quedar reintentando para siempre. Más reintentos esconderían un problema real; los errores permanentes
-(HTTP 4xx, respuesta malformada) fallan rápido en cada intento y quedan a la vista en el log.
+~15 minutos sin quedar reintentando para siempre. Más reintentos esconderían un problema real. Los errores **permanentes** (HTTP 4xx,
+respuesta malformada, falta configuración) **no se reintentan**: la ingesta sale con código 2 o 3 y el operador
+`BashSinReintentarPermanentes` convierte eso en `AirflowFailException`, así la tarea falla de una y no espera 15 minutos
+de reintentos inútiles. Lo prueba `ci/test_dag.py`.
 
 **Reintentar es seguro porque todas las tareas son idempotentes**: la ingesta no trae lo que ya tiene o hace MERGE,
 dbt reconstruye las tablas y la publicación reemplaza en una transacción. Sin idempotencia (E1), cada reintento duplicaría datos.
@@ -55,15 +57,16 @@ La tarea de extracción **recibe su intervalo del contexto de la corrida** (`dat
 nunca del reloj. Una corrida con fecha lógica del 10/03 procesa el 10/03 aunque se ejecute en octubre.
 
 **Opción A — un rango, desde la UI (la que usamos en la demo):**
-1. En `pipeline_grupo06`, botón ▶ (**Trigger DAG**) → se abre un formulario con los campos **inicio** y **fin**.
-2. En la configuración (JSON) poner el período a reprocesar (`fin` es exclusivo):
+1. En `pipeline_grupo06`, botón ▶ (**Trigger DAG**) → se abre un formulario con los campos **Inicio del backfill** y
+   **Fin del backfill (no incluido)**. El formulario existe porque la DAG declara esos dos `params`; vacíos = corrida normal.
+2. Completar el período a reprocesar (`fin` es exclusivo). Es lo mismo que mandar la configuración JSON:
    ```json
-   {"inicio": "2026-02-01", "fin": "2026-02-08"}
+   {"inicio": "2026-03-01", "fin": "2026-03-08"}
    ```
 3. **Trigger**. En el log de `extraer_bronze`:
-   `intervalo pedido: [2026-02-01, 2026-02-08) | a extraer: 2026-02-01 -> 2026-02-07` → `Escritas 7 filas ... (merge)`.
+   `intervalo pedido: [2026-03-01, 2026-03-08) | a extraer: 2026-03-01 -> 2026-03-07` → `Escritas 7 filas ... (merge)`.
    Las filas de bronze no cambian (MERGE), aparece una versión nueva en el historial de Delta (NB03), y dbt + publicación corren después.
-   *(Verificado en el servidor el 21/10/2026.)*
+   *(Verificado en el servidor el 19/11/2026: 1.783 filas y 1.783 fechas distintas antes y después.)*
 
 **Opción B — por fecha lógica:** el mismo botón, eligiendo **Logical date** en el pasado y sin config.
 Ojo con un detalle de Airflow 2.9: en una corrida **manual**, la fecha lógica es el **fin** del intervalo
@@ -88,7 +91,7 @@ Workflow `CI` en GitHub Actions, en **cada push y cada pull request**. Tres jobs
 |---|---|
 | **Ingesta** | Que `entorno.py` y los scripts compilen + 10 tests de `ci/test_ingesta.py` sin red: primera corrida con las dos APIs, segunda corrida sin pedidos, incremental desde el watermark, backfill sin duplicar, días no publicados, errores transitorios con reintento, errores permanentes sin reintento, respuestas malformadas |
 | **dbt** | Crea una tabla Delta local con `ci/bronze_muestra.csv` (78 días **reales** de nuestro bronze, cruzando el cambio de fuente) → `dbt parse` + `dbt compile` (SQL válido) → `dbt build` (modelos + todos los tests de datos) |
-| **DAG** | Que el DAG importe en **Airflow 2.9.3** (la versión del servidor) sin errores, con las 5 tareas en ese orden, reintentos entre 1 y 3, `catchup=False`, `max_active_runs=1`, y que la extracción use `data_interval_*` |
+| **DAG** | Que el DAG importe en **Airflow 2.9.3** (la versión del servidor) sin errores, con las 5 tareas en ese orden, reintentos entre 1 y 3, `catchup=False`, `max_active_runs=1`, que la extracción use `data_interval_*`, que una falla permanente (código 2 o 3) no se reintente y que exista el formulario de backfill (`inicio`/`fin`) |
 
 **Qué pasa si falla:** la rama `main` está protegida y exige los tres checks en verde para mergear un pull request.
 Un cambio que rompe algo queda bloqueado en su PR (ver [defensa.md](defensa.md) para la demo del CI en rojo).
