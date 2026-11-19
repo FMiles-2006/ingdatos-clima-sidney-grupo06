@@ -24,8 +24,9 @@ Intervalo y backfill:
   * La extracción recibe el intervalo de la corrida (data_interval_start/end), nunca el
     reloj. Una corrida con fecha lógica 2026-03-01 procesa el 2026-03-01 aunque se
     ejecute hoy.
-  * Backfill de un rango en UNA corrida: disparar con config
-        {"inicio": "2026-03-01", "fin": "2026-04-01"}
+  * Backfill de un rango en UNA corrida: botón ▶ (Trigger DAG) → formulario con los
+    campos "inicio" y "fin" (o el JSON {"inicio": "2026-03-01", "fin": "2026-04-01"}).
+    Vacíos = corrida normal. "fin" no se incluye: con fin 2026-03-08 el último día es el 7.
 """
 from __future__ import annotations
 
@@ -35,6 +36,7 @@ import re
 import pendulum
 from airflow.exceptions import AirflowException, AirflowFailException
 from airflow.models.dag import DAG
+from airflow.models.param import Param
 from airflow.operators.bash import BashOperator
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -118,6 +120,14 @@ with DAG(
     max_active_runs=1,       # dos corridas a la vez competirían por la tabla Delta y el archivo DuckDB
     default_args=default_args,
     tags=["proyecto-integrador", GRUPO, "open-meteo"],
+    # Declarar los parámetros hace que el botón ▶ abra un formulario para el backfill.
+    # Sin params, Airflow 2.9 dispara la corrida directo y no deja cargar el intervalo.
+    params={
+        "inicio": Param(None, type=["null", "string"], format="date", title="Inicio del backfill",
+                        description="Primer día a reprocesar (AAAA-MM-DD). Vacío = corrida normal."),
+        "fin": Param(None, type=["null", "string"], format="date", title="Fin del backfill (no incluido)",
+                     description="Día siguiente al último a reprocesar. Vacío = corrida normal."),
+    },
     doc_md=__doc__,
 ) as dag:
 

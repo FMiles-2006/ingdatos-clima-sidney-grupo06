@@ -55,7 +55,7 @@ La tarea de extracción **recibe su intervalo del contexto de la corrida** (`dat
 nunca del reloj. Una corrida con fecha lógica del 10/03 procesa el 10/03 aunque se ejecute en octubre.
 
 **Opción A — un rango, desde la UI (la que usamos en la demo):**
-1. En `pipeline_grupo06`, botón ▶ → **Trigger DAG w/ config**.
+1. En `pipeline_grupo06`, botón ▶ (**Trigger DAG**) → se abre un formulario con los campos **inicio** y **fin**.
 2. En la configuración (JSON) poner el período a reprocesar (`fin` es exclusivo):
    ```json
    {"inicio": "2026-02-01", "fin": "2026-02-08"}

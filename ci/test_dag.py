@@ -64,3 +64,11 @@ def test_falla_permanente_no_se_reintenta():
                 tarea.execute({})
         if codigo == 1:
             assert not isinstance(info.value, AirflowFailException)
+
+
+def test_backfill_tiene_formulario():
+    """El botón ▶ abre un formulario con inicio/fin; vacíos no cambian la corrida diaria."""
+    bag = DagBag(dag_folder=os.path.join(RAIZ, "dags"), include_examples=False)
+    dag = next(iter(bag.dags.values()))
+    assert set(dag.params.keys()) >= {"inicio", "fin"}
+    assert dag.params["inicio"] is None and dag.params["fin"] is None
