@@ -89,7 +89,7 @@ Workflow `CI` en GitHub Actions, en **cada push y cada pull request**. Tres jobs
 
 | Job | Verifica |
 |---|---|
-| **Ingesta** | Que `entorno.py` y los scripts compilen + 10 tests de `ci/test_ingesta.py` sin red: primera corrida con las dos APIs, segunda corrida sin pedidos, incremental desde el watermark, backfill sin duplicar, días no publicados, errores transitorios con reintento, errores permanentes sin reintento, respuestas malformadas |
+| **Ingesta** | Que `entorno.py` y los scripts compilen + 15 tests de `ci/test_ingesta.py` sin red: primera corrida con las dos APIs, segunda corrida sin pedidos, incremental desde el watermark, backfill sin duplicar, días no publicados, errores transitorios con reintento, errores permanentes sin reintento, respuestas malformadas |
 | **dbt** | Crea una tabla Delta local con `ci/bronze_muestra.csv` (78 días **reales** de nuestro bronze, cruzando el cambio de fuente) → `dbt parse` + `dbt compile` (SQL válido) → `dbt build` (modelos + todos los tests de datos) |
 | **DAG** | Que el DAG importe en **Airflow 2.9.3** (la versión del servidor) sin errores, con las 5 tareas en ese orden, reintentos entre 1 y 3, `catchup=False`, `max_active_runs=1`, que la extracción use `data_interval_*`, que una falla permanente (código 2 o 3) no se reintente y que exista el formulario de backfill (`inicio`/`fin`) |
 
