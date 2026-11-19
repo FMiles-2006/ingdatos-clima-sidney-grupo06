@@ -66,7 +66,8 @@ El Airflow compartido **solo monta `~/work/dags`** de cada grupo. Por eso el rep
 
 1. Abrir https://jupyter.nexoacademia.org (usuario `grupo06`).
 2. Subir `notebooks/NB00_desplegar_en_servidor.ipynb` (o copiar su primera celda) y ejecutarlo:
-   clona/actualiza el repo en `~/work/dags` y genera el `.env` desde las variables de JupyterHub.
+   clona/actualiza el repo en `~/work/dags` (`git clone https://github.com/FMiles-2006/ingdatos-clima-sidney-grupo06.git`),
+   genera el `.env` desde las variables de JupyterHub e instala `deltalake` y `pyarrow` si faltan.
 3. Abrir `~/work/dags/notebooks/` y correr NB02 → NB06 en orden (primera carga, dbt, publicación).
 4. En https://airflow.nexoacademia.org activar el DAG **`pipeline_grupo06`**.
 5. En https://metabase.nexoacademia.org rehacer el tablero según [docs/tablero_metabase.md](docs/tablero_metabase.md).
@@ -76,7 +77,9 @@ Actualizar después de un cambio en GitHub: volver a ejecutar NB00 (hace `git pu
 ## Puesta en marcha local (Docker de la cátedra)
 
 ```bash
-cp .env.example .env
+git clone https://github.com/FMiles-2006/ingdatos-clima-sidney-grupo06.git
+cd ingdatos-clima-sidney-grupo06
+cp .env.example .env                     # completar con las credenciales del grupo (no se versionan)
 make up                                  # minio, postgres, airflow, metabase
 make work                                # shell en el contenedor de trabajo
 python -m scripts.ingesta                # 1ª corrida: histórico 2022 -> ayer
