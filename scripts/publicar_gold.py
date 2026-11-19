@@ -41,6 +41,11 @@ log = logging.getLogger("publicar_gold")
 TABLAS = {
     "fct_clima_mensual": "mes",
     "feat_clima_diario": "fecha",
+    # agregados que lee el tablero (el cálculo vive en dbt, no en Metabase)
+    "agg_estacion_lluvia": "estacion",
+    "agg_dias_sin_lluvia": "dias_sin_lluvia",
+    "agg_anio_a_la_fecha": "anio",
+    "agg_fase_enso": "fase_enso",
 }
 
 VARIABLES_PG = ["PGHOST", "PGDATABASE", "PGUSER", "PGPASSWORD"]

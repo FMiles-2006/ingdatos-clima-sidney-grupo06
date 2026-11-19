@@ -19,6 +19,11 @@ orquestado por **Airflow** y verificado por **CI** en cada cambio.
         └──────────────── Airflow: preparar_entorno ► extraer_bronze ► dbt_run ► dbt_test ► publicar_gold (06:00 ART) ┘
 ```
 
+![Arquitectura del pipeline](docs/capturas/arquitectura.png)
+
+Diagrama generado desde [`docs/arquitectura.dot`](docs/arquitectura.dot) (Graphviz). En gold, además de las dos tablas
+principales, dbt calcula los 4 agregados `agg_*` que lee el tablero.
+
 ## Dominio y fuentes
 
 - **Qué:** variables diarias del clima en Sídney (−33.78, 151.23), día local `Australia/Sydney`, desde el **2022-01-01**.
@@ -58,7 +63,7 @@ orquestado por **Airflow** y verificado por **CI** en cada cambio.
 | E4 · Serving, features, tablero | [docs/E4_serving.md](docs/E4_serving.md) · [docs/tablero_metabase.md](docs/tablero_metabase.md) · [docs/grafana/](docs/grafana/README.md) (observabilidad) |
 | Governance del dataset | [docs/governance.md](docs/governance.md) |
 | Defensa | [docs/defensa.md](docs/defensa.md) |
-| Actividad integradora (scripts + dbt + Airflow) | [README_GRUPO.md](README_GRUPO.md) · evidencias en [docs/evidencias/](docs/evidencias/) |
+| Actividad integradora (scripts + dbt + Airflow) | [docs/actividad_integradora.md](docs/actividad_integradora.md) · evidencias en [docs/evidencias/](docs/evidencias/) |
 
 ## Puesta en marcha en el servidor de la cátedra (lo que se usa en la defensa)
 
@@ -92,10 +97,10 @@ cd .. && python -m scripts.publicar_gold # gold -> PostgreSQL
 | Parte | Estado |
 |---|---|
 | Ingesta (E1) | ✅ bronze completo 2022-01-01 → ayer; la 2.ª corrida del día no pide nada a la API |
-| dbt (E2) | ✅ `dbt build`: 2 seeds, 5 modelos, 44 tests en verde sobre la tabla Delta real |
+| dbt (E2) | ✅ `dbt build`: 2 seeds, 9 modelos (5 del pipeline + 4 agregados del tablero), 57 tests en verde sobre la tabla Delta real |
 | Airflow (E3) | ✅ `pipeline_grupo06` corre solo todos los días a las 06:00 (ART); todas las corridas del 26/10 al 16/11 en verde y sin reintentos; backfill por rango y por fecha lógica probado |
 | CI (E3) | ✅ 3 jobs en verde; `main` protegida; rama `demo/ci-rojo` para mostrar el CI bloqueando |
-| Gold en PostgreSQL (E4) | ✅ `grupo06.fct_clima_mensual` y `grupo06.feat_clima_diario` (1.781 días, sin huecos ni duplicados); publicación repetible |
+| Gold en PostgreSQL (E4) | ✅ `grupo06.fct_clima_mensual`, `grupo06.feat_clima_diario` (sin huecos ni duplicados) y los 4 agregados `grupo06.agg_*` que lee el tablero; publicación repetible |
 | Tablero Metabase (E4) | ✅ colección **Grupo06 · Clima de Sídney** en https://metabase.nexoacademia.org — preguntas y capturas en [docs/tablero_metabase.md](docs/tablero_metabase.md) |
 | Observabilidad (Grafana) | ✅ tablero versionado en [docs/grafana/](docs/grafana/README.md) (atraso del dato, huecos, corridas, duración, reintentos); consultas probadas en el servidor |
 | Governance | ✅ 6 secciones, responsable con nombre |

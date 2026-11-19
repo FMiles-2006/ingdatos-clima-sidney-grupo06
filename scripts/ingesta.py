@@ -141,7 +141,7 @@ def cargar_configuracion(inicio: date | None = None, fin: date | None = None) ->
         if faltan:
             raise ErrorConfiguracion(
                 f"Faltan variables obligatorias en el .env o el entorno: {', '.join(faltan)}. "
-                "En el servidor se generan con notebooks/NB00 (ver README_GRUPO.md).")
+                "En el servidor se generan con notebooks/NB00 (ver docs/actividad_integradora.md).")
 
     fin = fin or date.today()                       # solo en corridas manuales; Airflow siempre pasa --fin
     if inicio is not None and inicio >= fin:

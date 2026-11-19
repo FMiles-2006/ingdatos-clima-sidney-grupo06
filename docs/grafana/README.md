@@ -23,7 +23,7 @@ Usa los dos datasources que la cátedra ya tiene configurados en https://grafana
 ### Valores al 17/11/2026 (últimos 30 días)
 - Atraso: **1 día** (último día cargado: 16/11). Días faltantes: **0** (1.781 de 1.781).
 - Última corrida programada: **success**.
-- Reintentos: **3**, todos del 23/10 (corte de red en el servidor, documentado en `README_GRUPO.md`). Desde el 24/10, ninguno.
+- Reintentos: **3**, todos del 23/10 (corte de red en el servidor, documentado en `docs/actividad_integradora.md`). Desde el 24/10, ninguno.
 - Duración típica de una corrida: ~20 s (dbt_run ~10 s, dbt_test ~5 s, extraer_bronze ~3 s, publicar_gold ~2 s).
 
 ## Por qué es un JSON en el repo y no un tablero en el servidor

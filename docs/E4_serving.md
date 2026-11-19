@@ -32,6 +32,13 @@ Publica en la base `warehouse`, schema `grupo06`:
 |---|---|---|
 | `fct_clima_mensual` | 1 por mes (59 al 17/11/2026) | `mes` |
 | `feat_clima_diario` | 1 por día (1.782 al 17/11/2026) | `fecha` |
+| `agg_estacion_lluvia` | 1 por estación (4) | `estacion` |
+| `agg_dias_sin_lluvia` | 1 por días sin llover (0 a "7 o más") | `dias_sin_lluvia` |
+| `agg_anio_a_la_fecha` | 1 por año, mismo tramo 1/1 → último día | `anio` |
+| `agg_fase_enso` | 1 por fase de El Niño (3) | `fase_enso` |
+
+Los cuatro `agg_*` son los agregados que lee el tablero: se calculan en dbt (con tests) para que ninguna cuenta de
+negocio viva solo en Metabase, que no se versiona.
 
 **Repetible:** cada tabla se reemplaza con `DELETE` + `INSERT` dentro de **una transacción** (correrla dos veces deja lo
 mismo, verificado en NB06). Es atómica: Metabase ve la versión anterior completa o la nueva completa. No se hace `DROP TABLE`
