@@ -40,7 +40,7 @@ Publica en la base `warehouse`, schema `grupo06`:
 Los cuatro `agg_*` son los agregados que lee el tablero: se calculan en dbt (con tests) para que ninguna cuenta de
 negocio viva solo en Metabase, que no se versiona.
 
-**Repetible:** cada tabla se reemplaza con `DELETE` + `INSERT` dentro de **una transacción** (correrla dos veces deja lo
+**Repetible:** cada tabla se reemplaza con `DELETE` + `INSERT`, y **todas juntas en una sola transacción** (correrla dos veces deja lo
 mismo, verificado en NB06). Es atómica: Metabase ve la versión anterior completa o la nueva completa. No se hace `DROP TABLE`
 en cada corrida: solo si cambian las columnas de la gold (pasó al sumar `lluvia_mm` y `fase_enso`), la tabla se recrea
 con el esquema nuevo dentro de la misma transacción. Las preguntas del tablero son SQL nativo, así que sobreviven. Si la gold viniera vacía, no se publica.
