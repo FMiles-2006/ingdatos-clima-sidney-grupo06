@@ -80,16 +80,34 @@ Actualizar después de un cambio en GitHub: volver a ejecutar NB00 (hace `git pu
 
 ## Puesta en marcha local (Docker de la cátedra)
 
+Todo el stack corre en una PC con **Docker Desktop** (necesita ~6 GB de RAM libres). Los mismos comandos sirven en
+Windows (PowerShell), Mac y Linux; `make up` / `make work` son atajos de los dos primeros pasos donde hay `make`.
+
 ```bash
 git clone https://github.com/FMiles-2006/ingdatos-clima-sidney-grupo06.git
 cd ingdatos-clima-sidney-grupo06
-cp .env.example .env                     # completar con las credenciales del grupo (no se versionan)
-make up                                  # minio, postgres, airflow, metabase
-make work                                # shell en el contenedor de trabajo
-python -m scripts.ingesta                # 1ª corrida: histórico 2022 -> ayer
-cd dbt && dbt build --profiles-dir .     # silver + gold + tests
-cd .. && python -m scripts.publicar_gold # gold -> PostgreSQL
+cp .env.example .env                    # PowerShell: Copy-Item .env.example .env
+docker compose up -d --build            # minio, postgres, airflow, metabase (la 1.ª vez tarda ~10 min)
+docker compose ps                       # esperar a que airflow-webserver figure "running"
 ```
+
+**Pipeline completo con Airflow (lo mismo que en el servidor):** http://localhost:8080 (admin / admin) →
+`pipeline_grupo06` → activar el interruptor → ▶ *Trigger DAG*. La 1.ª corrida crea el venv del pipeline y trae el
+histórico 2022 → ayer (~3 min); las 5 tareas tienen que quedar en verde. El repo entero se monta como carpeta del grupo,
+igual que en el servidor, así que cualquier cambio del código se ve en ~30 s sin reconstruir nada.
+
+**Paso a paso a mano (sin Airflow):**
+
+```bash
+docker compose -f docker-compose.work.yml run --rm work bash   # shell en el contenedor de trabajo
+python -m scripts.ingesta                # 1.ª corrida: histórico 2022 -> ayer; la 2.ª: "Nada nuevo para pedir"
+cd dbt && dbt build --profiles-dir .     # silver + gold + 58 tests
+cd .. && python -m scripts.publicar_gold # gold -> PostgreSQL (base gold, esquema public)
+```
+
+Interfaces locales: Airflow http://localhost:8080 · MinIO http://localhost:9001 (minioadmin / minioadmin) · Metabase
+http://localhost:3000 (en el primer uso: base PostgreSQL, host `postgres`, base `gold`, usuario y clave `airflow`).
+Para apagar: `docker compose down` (conserva los datos); `docker compose down -v` borra también los volúmenes.
 
 ## Estado (verificado en el servidor de la cátedra el 19/11/2026)
 
