@@ -1,0 +1,6 @@
+# Fin de línea LF en todos los archivos de texto, también en Windows.
+# Los contenedores son Linux: un .sh o un .env con CRLF (\r\n) rompe bash
+# ("set: invalid option") y deja un "\r" pegado a cada credencial.
+* text=auto eol=lf
+*.png binary
+*.pdf binary

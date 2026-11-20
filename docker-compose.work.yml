@@ -14,10 +14,8 @@ services:
       AWS_ENDPOINT_URL: http://minio:9000
       AWS_ALLOW_HTTP: 'true'
     volumes:
-      - ./notebooks:/work/notebooks
-      - ./dbt:/work/dbt
-      - ./seed:/work/seed
-      - ./scripts:/work/scripts
+      # El repo entero: los scripts necesitan entorno.py y el .env de la raíz.
+      - .:/work
     ports:
       - "8888:8888"
     networks:

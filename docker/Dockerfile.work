@@ -6,7 +6,10 @@
 #   # dentro:  jupyter lab --ip=0.0.0.0 --allow-root --no-browser
 FROM python:3.11-slim
 WORKDIR /work
+# Mismas versiones que el venv del pipeline en Airflow (deltalake, duckdb, dbt, SQLAlchemy...),
+# para que la ingesta, dbt y la publicación se comporten igual que en el DAG.
+COPY requirements-pipeline.txt /tmp/requirements-pipeline.txt
 COPY docker/requirements.work.txt /tmp/requirements.txt
-RUN pip install --no-cache-dir -r /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements-pipeline.txt -r /tmp/requirements.txt
 EXPOSE 8888
 CMD ["bash"]
