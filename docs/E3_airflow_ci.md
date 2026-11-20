@@ -30,11 +30,11 @@ preparar_entorno ──► extraer_bronze ──► dbt_run ──► dbt_test �
 
 | Tarea | Qué hace | Reintentos | Por qué es una tarea aparte |
 |---|---|---|---|
-| `preparar_entorno` | Crea **una sola vez** un venv propio (`/tmp/venv_grupo06`) con deltalake, duckdb, dbt-duckdb; si ya existe para esa versión de `requirements-pipeline.txt`, tarda < 1 s | 2 × (5, 10 min) | El Airflow compartido no trae esas librerías e instalar en su Python podría romper a otros grupos. Si falla es **infraestructura** (pip/red), no datos: se diagnostica distinto |
-| `extraer_bronze` | `python -m scripts.ingesta --inicio <data_interval_start> --fin <data_interval_end>` | 2 × (5, 10 min), **solo si la falla es transitoria** | Depende de una API externa: es la falla transitoria más probable. Reintentarla no repite dbt ni la publicación. Si la ingesta sale con código 2 o 3 (falla permanente o de configuración), la tarea falla sin reintentos (`BashSinReintentarPermanentes`) |
+| `preparar_entorno` | Crea **una sola vez** un venv propio (`/tmp/venv_grupo06`) con deltalake, duckdb, dbt-duckdb; si ya existe para esa versión de `requirements-pipeline.txt`, tarda < 1 s | 2 × (~5-10, ~10-20 min) | El Airflow compartido no trae esas librerías e instalar en su Python podría romper a otros grupos. Si falla es **infraestructura** (pip/red), no datos: se diagnostica distinto |
+| `extraer_bronze` | `python -m scripts.ingesta --inicio <data_interval_start> --fin <data_interval_end>` | 2 × (~5-10, ~10-20 min), **solo si la falla es transitoria** | Depende de una API externa: es la falla transitoria más probable. Reintentarla no repite dbt ni la publicación. Si la ingesta sale con código 2 o 3 (falla permanente o de configuración), la tarea falla sin reintentos (`BashSinReintentarPermanentes`) |
 | `dbt_run` | `dbt seed` + `dbt run`: staging (silver) + marts (gold) + features | 1 × 2 min | Es determinística: reintentar da lo mismo. El único reintento cubre fallas de infraestructura (archivo DuckDB bloqueado) |
-| `dbt_test` | `dbt test`: 57 pruebas de calidad | 1 × 2 min | Separada de `dbt_run` para que el log muestre si falló la **construcción** o la **calidad** de los datos |
-| `publicar_gold` | DuckDB → PostgreSQL (DELETE + INSERT en una transacción) | 2 × 2 min | Toca el warehouse que ve Metabase. **Solo corre si `dbt_test` pasó** (trigger rule `all_success`): un test en rojo no llega al tablero |
+| `dbt_test` | `dbt test`: 58 pruebas de calidad (2 son avisos que no bloquean: frescura y catálogo ENSO) | 1 × 2 min | Separada de `dbt_run` para que el log muestre si falló la **construcción** o la **calidad** de los datos |
+| `publicar_gold` | DuckDB → PostgreSQL (DELETE + INSERT de **todas** las tablas en una sola transacción) | 2 × (~2, ~4 min) | Toca el warehouse que ve Metabase. **Solo corre si `dbt_test` pasó** (trigger rule `all_success`): un test en rojo no llega al tablero |
 
 Nada pesado en el nivel superior del archivo: solo se lee un `.env` chico. Las tareas son `BashOperator`: cada una es un
 proceso propio con el `.env` del grupo, así un Airflow compartido no mezcla credenciales ni módulos entre grupos.
@@ -42,8 +42,10 @@ proceso propio con el `.env` del grupo, así un Airflow compartido no mezcla cre
 
 ### ¿Por qué 2 reintentos, 5 minutos y backoff?
 La falla que esperamos que el reintento resuelva es que **Open-Meteo o MinIO no respondan un rato**. La ingesta ya
-reintenta 3 veces en segundos (2 s, 4 s); si sigue fallando, Airflow espera 5 y después 10 minutos: cubre una caída de
-~15 minutos sin quedar reintentando para siempre. Más reintentos esconderían un problema real. Los errores **permanentes** (HTTP 4xx,
+reintenta 3 veces en segundos (2 s, 4 s); si sigue fallando, Airflow reintenta la tarea dos veces más. Con `retry_exponential_backoff`, Airflow 2.9 duplica la espera
+en cada intento y le suma un margen variable (para que muchas tareas no reintenten todas en el mismo segundo): el
+primer reintento llega entre 5 y 10 minutos después, el segundo entre 10 y 20 (tope: `max_retry_delay` = 30 min).
+En total cubre una caída de ~15 a 30 minutos sin quedar reintentando para siempre. Más reintentos esconderían un problema real. Los errores **permanentes** (HTTP 4xx,
 respuesta malformada, falta configuración) **no se reintentan**: la ingesta sale con código 2 o 3 y el operador
 `BashSinReintentarPermanentes` convierte eso en `AirflowFailException`, así la tarea falla de una y no espera 15 minutos
 de reintentos inútiles. Lo prueba `ci/test_dag.py`.
@@ -89,7 +91,7 @@ Workflow `CI` en GitHub Actions, en **cada push y cada pull request**. Tres jobs
 
 | Job | Verifica |
 |---|---|
-| **Ingesta** | Que `entorno.py` y los scripts compilen + 15 tests de `ci/test_ingesta.py` sin red: primera corrida con las dos APIs, segunda corrida sin pedidos, incremental desde el watermark, backfill sin duplicar, días no publicados, errores transitorios con reintento, errores permanentes sin reintento, respuestas malformadas |
+| **Ingesta** | Que `entorno.py` y los scripts compilen + 16 tests de `ci/test_ingesta.py` sin red: primera corrida con las dos APIs, segunda corrida sin pedidos, incremental desde el watermark, backfill sin duplicar, días no publicados, errores transitorios con reintento, errores permanentes sin reintento, respuestas malformadas, `fin` en el futuro rechazado |
 | **dbt** | Crea una tabla Delta local con `ci/bronze_muestra.csv` (78 días **reales** de nuestro bronze, cruzando el cambio de fuente) → `dbt parse` + `dbt compile` (SQL válido) → `dbt build` (modelos + todos los tests de datos) |
 | **DAG** | Que el DAG importe en **Airflow 2.9.3** (la versión del servidor) sin errores, con las 5 tareas en ese orden, reintentos entre 1 y 3, `catchup=False`, `max_active_runs=1`, que la extracción use `data_interval_*`, que una falla permanente (código 2 o 3) no se reintente y que exista el formulario de backfill (`inicio`/`fin`) |
 

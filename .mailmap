@@ -1,0 +1,4 @@
+# Unifica las identidades de cada integrante en `git shortlog` / `git log --use-mailmap`.
+Francisco Miles <franmiles11@gmail.com> Francisco (FMiles-2006) <franmiles11@gmail.com>
+Francisco Miles <franmiles11@gmail.com> FMiles-2006 <126501042+FMiles-2006@users.noreply.github.com>
+Bautista Verna <bautistaverna@uca.edu.ar> Bautista Verna <67909511+BautistaVerna@users.noreply.github.com>
