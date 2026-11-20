@@ -96,4 +96,4 @@ Workflow `CI` en GitHub Actions, en **cada push y cada pull request**. Tres jobs
 | **DAG** | Que el DAG importe en **Airflow 2.9.3** (la versión del servidor) sin errores, con las 5 tareas en ese orden, reintentos entre 1 y 3, `catchup=False`, `max_active_runs=1`, que la extracción use `data_interval_*`, que una falla permanente (código 2 o 3) no se reintente y que exista el formulario de backfill (`inicio`/`fin`) |
 
 **Qué pasa si falla:** la rama `main` está protegida y exige los tres checks en verde para mergear un pull request.
-Un cambio que rompe algo queda bloqueado en su PR (ver [defensa.md](defensa.md) para la demo del CI en rojo).
+Un cambio que rompe algo queda bloqueado en su PR (para mostrarlo está el PR #1, rama `demo/ci-rojo`, que el CI deja en rojo).

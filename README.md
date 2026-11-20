@@ -47,7 +47,7 @@ principales, dbt calcula los 4 agregados `agg_*` que lee el tablero.
 ├── ci/                           # tests de CI + bronze de muestra
 ├── .github/workflows/ci.yml      # integración continua (E3)
 ├── notebooks/NB00..NB06          # notebooks de las prácticas, adaptados a Sídney
-├── docs/                         # README de cada entrega, governance, tablero, defensa
+├── docs/                         # README de cada entrega, governance, tablero
 ├── entorno.py                    # configuración única (servidor de la cátedra o Docker local)
 ├── .airflowignore                # Airflow solo parsea dags/
 └── .env.example                  # plantilla de credenciales (.env NO se versiona)
@@ -62,7 +62,6 @@ principales, dbt calcula los 4 agregados `agg_*` que lee el tablero.
 | E3 · Airflow + CI | [docs/E3_airflow_ci.md](docs/E3_airflow_ci.md) |
 | E4 · Serving, features, tablero | [docs/E4_serving.md](docs/E4_serving.md) · [docs/tablero_metabase.md](docs/tablero_metabase.md) · [docs/grafana/](docs/grafana/README.md) (observabilidad) |
 | Governance del dataset | [docs/governance.md](docs/governance.md) |
-| Defensa | [docs/defensa.md](docs/defensa.md) |
 | Actividad integradora (scripts + dbt + Airflow) | [docs/actividad_integradora.md](docs/actividad_integradora.md) · evidencias en [docs/evidencias/](docs/evidencias/) |
 
 ## Puesta en marcha en el servidor de la cátedra (lo que se usa en la defensa)
