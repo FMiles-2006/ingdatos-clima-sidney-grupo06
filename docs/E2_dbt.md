@@ -19,7 +19,7 @@ Dentro del contenedor (en el servidor: terminal de Jupyter, después de NB00):
 ```bash
 python -m scripts.ingesta     # E1: carga bronze (requisito de este build)
 cd dbt                        # en el servidor: cd ~/work/dags/dbt
-dbt build --profiles-dir .    # 2 seeds + 9 modelos + 57 tests, en orden de dependencias
+dbt build --profiles-dir .    # 2 seeds + 9 modelos + 58 tests, en orden de dependencias
 dbt docs generate --profiles-dir .   # catálogo + linaje en target/index.html
 ```
 Requiere bronze cargado (E1) y el `.env` (o las variables de entorno del Jupyter).
@@ -73,7 +73,7 @@ viva en dbt, versionada y con tests, y no en SQL suelto dentro de Metabase.
 
 ## Tests
 
-57 tests, todos en verde (`dbt build`; en la entrega 2 eran 44, los 13 nuevos cubren los agregados del tablero). Genéricos donde corresponde: `unique` y `not_null` en las claves (`fecha`, `mes`,
+58 tests (`dbt build`; en la entrega 2 eran 44: 13 cubren los agregados del tablero y 1 es el aviso de frescura). Todos en verde salvo los dos avisos, que no bloquean. Genéricos donde corresponde: `unique` y `not_null` en las claves (`fecha`, `mes`,
 `codigo_wmo`), `accepted_values` en `fuente`, `estacion` y `categoria`, `relationships` de `codigo_wmo` contra el catálogo.
 
 **Tests propios del dominio**, con lo que detecta cada uno:
@@ -86,6 +86,7 @@ viva en dbt, versionada y con tests, y no en SQL suelto dentro de Metabase.
 | `assert_gold_dias_no_superan_el_mes` | Meses con más días que el calendario, o más días de lluvia que días con datos | Duplicados que pasaron de silver a gold |
 | `assert_features_sin_fuga_temporal` | Promedio móvil de 7 días que no coincide con su recálculo usando solo el pasado | Fuga temporal en los features (E4) |
 | `assert_fases_enso_al_dia` (aviso, no error) | Meses cerrados sin fase de El Niño / La Niña | El catálogo quedó viejo: hay que cargar la última declaración del BoM |
+| `assert_dato_fresco` (aviso, no error) | El último día cargado tiene más de 3 días de atraso | El DAG dejó de correr o la API dejó de publicar: la serie sigue continua y válida, solo vieja, y ningún otro test lo ve |
 | `assert_fases_enso_sin_solapamiento` | Dos períodos de El Niño / La Niña que se pisan en el catálogo | Un mes con dos fases duplicaría filas de la gold mensual al hacer el join |
 
 **Demo "romper un dato"** (NB04, sección 4): se copia bronze a una tabla **temporal**, se pone en un día una mínima de 35 °C con
