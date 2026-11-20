@@ -137,14 +137,14 @@ un gestor de secretos (Connections/Variables de Airflow o un vault).
 
 ## 5 · Calidad y garantías
 
-**Qué se verifica automáticamente** (57 tests de dbt en cada corrida del DAG; si alguno falla, la gold **no se publica**):
+**Qué se verifica automáticamente** (58 tests de dbt en cada corrida del DAG; si alguno falla, la gold **no se publica**; los dos avisos —frescura y catálogo ENSO— no bloquean):
 - Un registro por día (`unique`, `not_null`) y **serie continua sin huecos**.
 - Temperaturas entre −5 y 50 °C, mínima ≤ media ≤ máxima, lluvia entre 0 y 400 mm/día, dirección del viento 0-359.
 - Valores permitidos en `fuente`, `estacion`, `categoria`; todo `codigo_wmo` existe en el catálogo.
 - Un mes no tiene más días que el calendario; los features no usan datos futuros (se recalculan y se comparan).
 - En la ingesta: estructura de la respuesta, fechas dentro del rango pedido, unidad °C (si no, no se escribe nada).
 
-**Frescura.** El DAG corre todos los días a las 06:00 (Argentina) y trae el día anterior de Sídney. Normalmente el último dato es de **ayer**.
+**Frescura.** El DAG corre todos los días a las 06:00 (Argentina) y trae el día anterior de Sídney. Normalmente el último dato es de **ayer**. Si el último día cargado tiene más de 3 días de atraso, el test `assert_dato_fresco` da un **aviso** en el log de `dbt_test` (no frena la publicación: el dato sigue siendo correcto, solo viejo).
 
 **Limitaciones y huecos conocidos.**
 - **Cambio de fuente el 2026-01-01.** ERA5 (reanálisis) y Historical Forecast (modelo) no son idénticos. En diciembre de 2025,
@@ -162,7 +162,7 @@ un gestor de secretos (Connections/Variables de Airflow o un vault).
 - Hasta la fecha **no hubo huecos**: la serie es continua desde 2022-01-01 (lo verifica `assert_serie_sin_huecos`).
 
 **Qué no detecta ningún test**: que la API devuelva valores plausibles pero incorrectos (un día con 22 °C cuando fueron 25 °C),
-que el dato quede viejo si el DAG deja de correr (no hay alerta de frescura todavía), o que la definición de "día lluvioso" no sea la que el usuario necesita.
+que el dato quede viejo si el **DAG entero** deja de correr (el aviso de frescura vive dentro del propio DAG: si el DAG no corre, nadie lo ve; haría falta un monitor externo, p. ej. una alerta de Grafana), o que la definición de "día lluvioso" no sea la que el usuario necesita.
 
 ## 6 · Licencia y uso
 

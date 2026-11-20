@@ -72,3 +72,30 @@ def test_backfill_tiene_formulario():
     dag = next(iter(bag.dags.values()))
     assert set(dag.params.keys()) >= {"inicio", "fin"}
     assert dag.params["inicio"] is None and dag.params["fin"] is None
+
+
+def test_backfill_no_pide_dias_futuros():
+    """Un fin de backfill posterior al de la corrida se recorta a data_interval_end
+    (del contexto, no del reloj): nunca se le piden a la API días que no terminaron."""
+    import re
+    from types import SimpleNamespace
+
+    import pendulum
+    from jinja2 import Environment
+
+    bag = DagBag(dag_folder=os.path.join(RAIZ, "dags"), include_examples=False)
+    cmd = next(iter(bag.dags.values())).get_task("extraer_bronze").bash_command
+    env = Environment()
+    env.filters["ds"] = lambda d: d.strftime("%Y-%m-%d")
+    fin_corrida = pendulum.datetime(2026, 11, 19, 9)
+
+    def render(conf):
+        out = env.from_string(cmd).render(
+            dag_run=SimpleNamespace(conf=conf),
+            data_interval_start=fin_corrida.subtract(days=1), data_interval_end=fin_corrida)
+        return re.search(r"--inicio (\S+) --fin (\S+)", out).groups()
+
+    assert render({}) == ("2026-11-18", "2026-11-19")                                   # corrida diaria
+    assert render({"inicio": "2026-03-01", "fin": "2026-03-08"}) == ("2026-03-01", "2026-03-08")
+    assert render({"inicio": "2026-11-01", "fin": "2026-12-01"}) == ("2026-11-01", "2026-11-19")  # recortado
+    assert render({"inicio": None, "fin": None}) == ("2026-11-18", "2026-11-19")        # formulario vacío

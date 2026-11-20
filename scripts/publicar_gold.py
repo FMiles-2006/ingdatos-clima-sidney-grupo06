@@ -10,10 +10,12 @@ Por qué se mueve la gold del lakehouse al warehouse:
   * Separa el "taller" (lake + dbt) de la "vidriera": si el build falla, el tablero
     sigue mostrando la última versión buena.
 
-Idempotencia: cada tabla se reemplaza con DELETE + INSERT dentro de UNA transacción.
+Idempotencia: las tablas se reemplazan con DELETE + INSERT, TODAS dentro de UNA sola
+transacción.
   * Correrlo dos veces deja exactamente el mismo resultado (no duplica).
-  * Es atómico: Metabase ve la versión anterior completa o la nueva completa, nunca
-    una tabla a medio cargar.
+  * Es atómico para toda la gold: Metabase ve la versión anterior completa o la nueva
+    completa, nunca una tabla a medio cargar ni una mezcla (p. ej. la mensual nueva con
+    los features viejos) si la publicación se corta a mitad de camino.
   * No se hace DROP TABLE: Metabase guarda sus preguntas atadas al id de la tabla, y
     recrearla en cada corrida rompería el tablero.
 
@@ -78,25 +80,25 @@ def leer_gold() -> dict:
     return datos
 
 
-def _publicar_tabla(engine, tabla: str, df) -> int:
+def _publicar_tabla(con, tabla: str, df) -> int:
+    """Reemplaza una tabla dentro de la transacción abierta `con` (no hace commit)."""
     pk = TABLAS[tabla]
-    with engine.begin() as con:                       # una transacción por tabla
-        insp = inspect(con)
-        existe = insp.has_table(tabla, schema=PG_SCHEMA)
-        if existe:
-            cols_pg = {c["name"] for c in insp.get_columns(tabla, schema=PG_SCHEMA)}
-            if cols_pg != set(df.columns):
-                # Cambió el contrato (columna nueva/renombrada): se recrea y se avisa.
-                log.warning("Cambió el esquema de %s: se recrea la tabla (revisar el tablero)", tabla)
-                con.execute(text(f'drop table "{PG_SCHEMA}"."{tabla}"'))
-                existe = False
-        if not existe:
-            df.head(0).to_sql(tabla, con, schema=PG_SCHEMA, index=False)
-            con.execute(text(f'alter table "{PG_SCHEMA}"."{tabla}" add primary key ("{pk}")'))
-        con.execute(text(f'delete from "{PG_SCHEMA}"."{tabla}"'))
-        df.to_sql(tabla, con, schema=PG_SCHEMA, index=False, if_exists="append",
-                  method="multi", chunksize=1000)
-        n = con.execute(text(f'select count(*) from "{PG_SCHEMA}"."{tabla}"')).scalar()
+    insp = inspect(con)
+    existe = insp.has_table(tabla, schema=PG_SCHEMA)
+    if existe:
+        cols_pg = {c["name"] for c in insp.get_columns(tabla, schema=PG_SCHEMA)}
+        if cols_pg != set(df.columns):
+            # Cambió el contrato (columna nueva/renombrada): se recrea y se avisa.
+            log.warning("Cambió el esquema de %s: se recrea la tabla (revisar el tablero)", tabla)
+            con.execute(text(f'drop table "{PG_SCHEMA}"."{tabla}"'))
+            existe = False
+    if not existe:
+        df.head(0).to_sql(tabla, con, schema=PG_SCHEMA, index=False)
+        con.execute(text(f'alter table "{PG_SCHEMA}"."{tabla}" add primary key ("{pk}")'))
+    con.execute(text(f'delete from "{PG_SCHEMA}"."{tabla}"'))
+    df.to_sql(tabla, con, schema=PG_SCHEMA, index=False, if_exists="append",
+              method="multi", chunksize=1000)
+    n = con.execute(text(f'select count(*) from "{PG_SCHEMA}"."{tabla}"')).scalar()
     if n != len(df):
         raise RuntimeError(f"{tabla}: se esperaban {len(df)} filas y quedaron {n}")
     log.info("Publicadas %d filas en %s.%s", n, PG_SCHEMA, tabla)
@@ -104,9 +106,10 @@ def _publicar_tabla(engine, tabla: str, df) -> int:
 
 
 def publicar_resultado(datos: dict) -> dict:
-    """Reemplaza cada tabla en PostgreSQL (DELETE + INSERT, una transacción por tabla)."""
+    """Reemplaza todas las tablas gold en PostgreSQL en UNA transacción (todo o nada)."""
     engine = create_engine(pg_url(), pool_pre_ping=True)
-    return {tabla: _publicar_tabla(engine, tabla, df) for tabla, df in datos.items()}
+    with engine.begin() as con:     # si cualquier tabla falla, rollback de todas
+        return {tabla: _publicar_tabla(con, tabla, df) for tabla, df in datos.items()}
 
 
 def publicar_gold() -> dict:

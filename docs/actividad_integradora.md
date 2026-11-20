@@ -142,7 +142,7 @@ Códigos de salida: `0` ok · `1` falla transitoria (Airflow reintenta) · `2` f
 
 **Por qué hace falta esta tarea** (no es una tarea vacía): dbt calcula la gold en un archivo DuckDB que el pipeline
 reconstruye en cada corrida y que vive en `/tmp` del worker. Metabase no puede leer ese archivo; se conecta a
-PostgreSQL. La publicación es repetible: `DELETE + INSERT` dentro de una transacción por tabla (nunca hay una tabla
+PostgreSQL. La publicación es repetible: `DELETE + INSERT` de todas las tablas dentro de una sola transacción (nunca hay una tabla
 a medio cargar ni duplicados) y verifica que la cantidad final de filas sea la esperada. Si una gold viene vacía, no
 publica, para no vaciar el tablero.
 

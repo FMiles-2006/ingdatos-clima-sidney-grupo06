@@ -189,3 +189,14 @@ def test_pipeline_por_pasos_de_la_consigna(ing):
     datos = ing.transformar_datos(registros)
     assert list(datos["fecha"]) == ["2022-01-01", "2022-01-02", "2022-01-03"]
     assert ing.guardar_bronze(datos, config)["escritas"] == 3
+
+
+def test_fin_en_el_futuro_se_rechaza_sin_consultar_la_api(ing):
+    """La Historical Forecast API devuelve PRONÓSTICOS para fechas futuras: un backfill con
+    fin en el futuro los guardaría como observaciones y adelantaría el watermark."""
+    manana = date.today() + timedelta(days=1)
+    with pytest.raises(ing.ErrorConfiguracion, match="futuro"):
+        ing.cargar_configuracion(inicio=date(2026, 1, 1), fin=manana)
+    assert ing.PEDIDOS == []
+    assert ing.main(["--inicio", "2026-01-01", "--fin", manana.isoformat()]) == 3   # sin reintentos en Airflow
+    assert ing.leer_watermark() is None                                            # no se escribió nada

@@ -97,7 +97,7 @@ cd .. && python -m scripts.publicar_gold # gold -> PostgreSQL
 | Parte | Estado |
 |---|---|
 | Ingesta (E1) | ✅ bronze completo 2022-01-01 → ayer; la 2.ª corrida del día no pide nada a la API |
-| dbt (E2) | ✅ `dbt build`: 2 seeds, 9 modelos (5 del pipeline + 4 agregados del tablero), 57 tests en verde sobre la tabla Delta real |
+| dbt (E2) | ✅ `dbt build`: 2 seeds, 9 modelos (5 del pipeline + 4 agregados del tablero), 58 tests sobre la tabla Delta real (56 en verde + 2 avisos que no bloquean: frescura y catálogo ENSO) |
 | Airflow (E3) | ✅ `pipeline_grupo06` corre solo todos los días a las 06:00 (ART); todas las corridas del 26/10 al 19/11 en verde; backfill por rango desde el formulario del botón ▶ (sin duplicar) y por fecha lógica probado; las fallas permanentes no se reintentan |
 | CI (E3) | ✅ 3 jobs en verde; `main` protegida; rama `demo/ci-rojo` para mostrar el CI bloqueando |
 | Gold en PostgreSQL (E4) | ✅ `grupo06.fct_clima_mensual`, `grupo06.feat_clima_diario` (sin huecos ni duplicados) y los 4 agregados `grupo06.agg_*` que lee el tablero; publicación repetible |
