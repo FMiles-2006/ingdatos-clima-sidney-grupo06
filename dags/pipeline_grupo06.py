@@ -7,7 +7,7 @@ DAG del proyecto integrador — grupo06 · Clima de Sídney (Open-Meteo).
   * extraer_bronze   : python -m scripts.ingesta  (API -> bronze Delta, incremental).
                        Una falla permanente (código 2 o 3) no se reintenta.
   * dbt_run          : dbt seed + dbt run         (bronze -> staging/silver -> marts/gold).
-  * dbt_test         : dbt test                   (57 pruebas de calidad).
+  * dbt_test         : dbt test                   (58 pruebas: 56 bloquean, 2 avisos).
   * publicar_gold    : python -m scripts.publicar_gold (gold DuckDB -> PostgreSQL).
 La DAG solo ORQUESTA: toda la lógica vive en scripts/ y en dbt/.
 
@@ -27,6 +27,7 @@ Intervalo y backfill:
   * Backfill de un rango en UNA corrida: botón ▶ (Trigger DAG) → formulario con los
     campos "inicio" y "fin" (o el JSON {"inicio": "2026-03-01", "fin": "2026-04-01"}).
     Vacíos = corrida normal. "fin" no se incluye: con fin 2026-03-08 el último día es el 7.
+    Un "fin" posterior al de la corrida se recorta a data_interval_end (nunca días futuros).
 """
 from __future__ import annotations
 
@@ -61,7 +62,7 @@ class BashSinReintentarPermanentes(BashOperator):
     scripts/ingesta.py sale con 1 si la falla es transitoria (API caída, timeout, 429/5xx),
     con 2 si es permanente (HTTP 4xx, respuesta malformada) y con 3 si falta configuración.
     Reintentar una falla permanente no sirve: con 2 o 3 la tarea falla de inmediato
-    (AirflowFailException) en lugar de esperar 5 + 10 minutos de reintentos inútiles.
+    (AirflowFailException) en lugar de esperar 15-30 minutos de reintentos inútiles.
     """
 
     CODIGOS_PERMANENTES = (2, 3)
@@ -95,12 +96,17 @@ _prep = (f'cd "{CURSO}" && set -a && if [ -f ./.env ]; then . ./.env; fi && set 
          f'DUCKDB_PATH="{TRABAJO}/warehouse.duckdb" DBT_TARGET_PATH="{TRABAJO}/target" DBT_LOG_PATH="{TRABAJO}/logs"')
 
 # Intervalo de la corrida: viene del contexto. Si se dispara con config {inicio, fin}, manda la config.
+# El fin de un backfill nunca pasa del fin del intervalo de la corrida (data_interval_end, del
+# contexto, no del reloj): si alguien pide "hasta fin de mes" a mitad de mes, se procesa hasta
+# ayer. Sin este tope, la Historical Forecast API devolvería pronósticos de días futuros y se
+# guardarían en bronze como si fueran observaciones.
 INICIO = "{{ dag_run.conf.get('inicio') or (data_interval_start | ds) }}"
-FIN = "{{ dag_run.conf.get('fin') or (data_interval_end | ds) }}"
+FIN = "{{ [dag_run.conf.get('fin') or (data_interval_end | ds), data_interval_end | ds] | min }}"
 
 default_args = {
     "owner": GRUPO,
-    # 2 reintentos con espera creciente (5 min, 10 min): cubren una caída corta de la API
+    # 2 reintentos con espera creciente (backoff exponencial de Airflow: ~5-10 min y ~10-20 min,
+    # con un margen variable): cubren una caída corta de la API
     # o de MinIO. Más reintentos esconderían un problema real. Reintentar es seguro
     # porque todas las tareas son idempotentes.
     "retries": 2,

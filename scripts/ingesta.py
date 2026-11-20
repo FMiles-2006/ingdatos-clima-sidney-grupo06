@@ -17,7 +17,8 @@ el origen solo entrega lo nuevo.
 
 INTERVALO: el rango a procesar llega de afuera (`--inicio` / `--fin`). En Airflow son
 `data_interval_start` y `data_interval_end` de la corrida, nunca el reloj del sistema;
-eso es lo que hace posible el backfill.
+eso es lo que hace posible el backfill. Un `fin` en el futuro se rechaza (código 3):
+la Historical Forecast API devolvería pronósticos y se guardarían como observaciones.
 
     desde = min(watermark + 1, inicio)      # reproceso si el intervalo ya estaba cargado
     hasta = fin - 1 día                     # el intervalo es [inicio, fin)
@@ -84,7 +85,7 @@ VARIABLES = [
 ]
 
 REINTENTOS = 3                  # intentos por pedido ante fallas transitorias
-ESPERA_BASE_S = 2               # backoff exponencial: 2 s, 4 s, 8 s
+ESPERA_BASE_S = 2               # backoff exponencial entre intentos: 2 s y 4 s
 TIMEOUT_S = (5, 30)             # (conexión, lectura)
 
 
@@ -144,6 +145,14 @@ def cargar_configuracion(inicio: date | None = None, fin: date | None = None) ->
                 "En el servidor se generan con notebooks/NB00 (ver docs/actividad_integradora.md).")
 
     fin = fin or date.today()                       # solo en corridas manuales; Airflow siempre pasa --fin
+    # Nunca pedir días que todavía no terminaron: la Historical Forecast API devuelve
+    # PRONÓSTICOS para fechas futuras, y se guardarían en bronze como si fueran datos
+    # observados (y el watermark saltaría al futuro). El reloj NO decide qué se procesa
+    # (eso lo dice el intervalo); solo rechaza un intervalo imposible.
+    if fin > date.today():
+        raise ErrorConfiguracion(
+            f"fin={fin} está en el futuro: la API devolvería pronósticos, no datos observados. "
+            f"El último fin válido hoy es {date.today()} (procesa hasta ayer).")
     if inicio is not None and inicio >= fin:
         raise ErrorConfiguracion(f"Intervalo vacío o invertido: inicio={inicio} fin={fin}")
     hasta = fin - timedelta(days=1)

@@ -37,6 +37,10 @@ El watermark es **`max(fecha)` de la tabla bronze**: el último día de Sídney 
 - **Se usa como parámetro de la consulta**: `start_date = watermark + 1 día`. El origen solo devuelve lo nuevo; no filtramos del lado del cliente.
 - **Primera corrida** (tabla inexistente): el watermark es `None` y se pide desde `2022-01-01`. Solo "la tabla no existe" se interpreta así; cualquier otro error al leer bronze (credenciales, red) se propaga, para no recargar todo el histórico por un error.
 - El límite superior **no sale del reloj**: llega como parámetro (`--fin`, en Airflow `data_interval_end`). `hasta = fin − 1 día`, así nunca pedimos el día en curso (que todavía es pronóstico).
+- **Nunca se piden días futuros.** La Historical Forecast API devuelve *pronósticos* para fechas que todavía no pasaron
+  (lo verificamos: pidiendo hasta la semana próxima devuelve valores). Un `--fin` en el futuro se rechaza con código 3,
+  sin consultar la API; en Airflow, el `fin` de un backfill se recorta al fin del intervalo de la corrida. El reloj nunca
+  decide *qué* se procesa: solo impide pedir lo imposible.
 
 ### Dos APIs según la fecha
 | Rango | API | Por qué |
@@ -60,15 +64,16 @@ Demo: `NB02`, sección 4 (dos corridas seguidas; la segunda deja igual las filas
 |---|---|---|
 | La API no responde / tarda (timeout 5 s de conexión, 30 s de lectura) | Reintenta hasta 3 veces, con espera de 2 s y 4 s | Transitoria |
 | HTTP 429 (rate limit) o 5xx | Igual: reintenta con backoff | Transitoria |
-| Sigue fallando después de 3 intentos | `ErrorTransitorio`, sale con código 1; en Airflow, la tarea se reintenta más tarde (5 y 10 min) | Transitoria |
+| Sigue fallando después de 3 intentos | `ErrorTransitorio`, sale con código 1; en Airflow, la tarea se reintenta más tarde (≈5-10 min y ≈10-20 min) | Transitoria |
 | HTTP 400/401/403/404 (parámetro inválido, URL mal) | `ErrorPermanente` inmediato, **sin reintentar**: repetir da lo mismo. Sale con código 2 y Airflow **tampoco** reintenta la tarea (falla de una para revisar el log) | Permanente |
 | 200 pero el cuerpo no es JSON | `ErrorPermanente` | Datos raros |
 | JSON sin bloque `daily`, faltan variables, columnas de distinto largo | `ErrorPermanente` (se verifica **antes** de convertir a tabla) | Datos raros |
 | Fechas inválidas, repetidas o fuera del rango pedido | `ErrorPermanente` | Datos raros |
 | Unidad de temperatura distinta de °C | `ErrorPermanente` (un cambio de unidad arruinaría la serie sin dar error) | Datos raros |
+| `--fin` posterior a hoy (pediría pronósticos) | `ErrorConfiguracion` antes de consultar la API, código 3 | Configuración |
 | Días con **todas** las mediciones nulas (el origen todavía no los publicó) | No se escriben y el corte se hace en el primer hueco: el watermark no avanza y la próxima corrida los vuelve a pedir | Esperable |
 
-Códigos de salida: **1** = transitoria (Airflow reintenta a los 5 y 10 min), **2** = permanente y **3** = falta configuración
+Códigos de salida: **1** = transitoria (Airflow reintenta a los ≈5-10 y ≈10-20 min), **2** = permanente y **3** = falta configuración
 (`.env` incompleto o intervalo inválido). Con 2 o 3 la tarea de Airflow falla sin reintentos: esperar no lo arregla.
 
 Con cualquier error, **no se escribe nada**: se valida todo antes de escribir y la escritura Delta es atómica.
