@@ -1,175 +1,193 @@
-# Documentación de governance — Clima diario de Sídney
+# Governance del dataset: clima diario de Sídney
 
-## 1 · Identificación
+Grupo 06 · Ingeniería de Datos, LCD, UCA Rosario, 2026
+
+## 1. Identificación
 
 | | |
 |---|---|
-| **Dataset** | Clima diario de Sídney (Open-Meteo) |
-| **Grupo** | grupo06 — Ingeniería de Datos, LCD UCA Rosario 2026 |
-| **Responsable** | **Francisco Miles** (FMiles-2006)
-| **Contacto** | Issues del repositorio `FMiles-2006/ingdatos-clima-sidney-grupo06` |
+| Dataset | Clima diario de Sídney (fuente: Open-Meteo) |
+| Grupo | grupo06 |
+| Responsable | Francisco Miles (usuario de GitHub FMiles-2006) |
+| Contacto | Issues del repositorio `FMiles-2006/ingdatos-clima-sidney-grupo06` |
 
-**Qué contiene.** El tiempo que hizo cada día en Sídney (Australia) desde el 1 de enero de 2022 hasta ayer:
-temperaturas máxima, mínima y media, lluvia, viento, radiación solar y el estado del tiempo predominante. Se completa
-solo todos los días. Además, un resumen por mes y un conjunto de indicadores derivados por día (promedios móviles,
-lluvia acumulada) listos para usar en modelos.
+El dataset tiene el clima de cada día en Sídney desde el 1 de enero de 2022 hasta ayer: temperatura máxima, mínima y
+media, lluvia, viento, radiación solar y el estado del tiempo del día. Se actualiza solo todos los días a la mañana.
+A partir de esos datos armamos un resumen por mes y una tabla de indicadores por día.
 
-**Para qué existe.** Para responder *cómo fue el clima de Sídney cada mes y cuánto se apartó de lo normal* (comparado
-con el mismo mes de 2022-2025), y para tener variables limpias y sin fuga temporal con las que predecir el clima del día siguiente.
+Lo armamos para responder una pregunta: cómo afecta la lluvia a la temperatura en Sídney. También sirve para ver cómo
+fue cada mes comparado con lo normal (el mismo mes en 2022-2025) y si el año viene más cálido o más lluvioso.
 
-## 2 · Origen y linaje
+## 2. Origen y linaje
 
-**Origen.** [Open-Meteo](https://open-meteo.com), servicio suizo de datos meteorológicos abiertos (sin clave). Se consultan dos de sus APIs
-para el punto −33.7786, 151.2314 (North Shore de Sídney, cerca de Lane Cove), en la zona horaria `Australia/Sydney`:
+Los datos vienen de [Open-Meteo](https://open-meteo.com), un servicio abierto de datos meteorológicos que no pide clave.
+Pedimos el punto −33.7786, 151.2314 (North Shore de Sídney) en el horario local de Sídney. Usamos dos APIs distintas
+según el período:
 
-| Período | API | Qué es el dato | Frecuencia de publicación |
-|---|---|---|---|
-| 2022-01-01 → 2025-12-31 | Archive API | **Reanálisis ERA5** del Centro Europeo (ECMWF): observaciones asimiladas en un modelo, grilla de ~25 km (ERA5) | Diaria, con ~5 días de demora |
-| 2026-01-01 → ayer | Historical Forecast API | **Salida archivada del modelo de pronóstico** de corto plazo (primeras horas de cada corrida) del mejor modelo disponible para la zona, con resolución de pocos km | Diaria, el día anterior completo |
+| Período | API | Qué tipo de dato es |
+|---|---|---|
+| 2022-01-01 a 2025-12-31 | Archive API | Reanálisis ERA5 del ECMWF: observaciones combinadas con un modelo, en una grilla de unos 25 km. Se publica con unos 5 días de demora |
+| desde 2026-01-01 | Historical Forecast API | Las primeras horas de cada corrida del modelo de pronóstico, guardadas. Tiene el día anterior completo |
 
-No hay histórico en CSV: todo el período se trajo de la API en la primera corrida, y desde entonces el pipeline pide
-solo los días que faltan (watermark).
+Tuvimos que usar las dos porque con ERA5 solo no tendríamos el día de ayer. No usamos ningún CSV: el histórico completo
+se trajo de la API en la primera corrida y desde ahí se piden solo los días que faltan.
 
-**Referencias externas (seeds de dbt, versionadas en el repo):** el catálogo de códigos WMO (`codigos_wmo.csv`) y las
-fases de El Niño / La Niña según las declaraciones de la Oficina de Meteorología de Australia (`fases_enso.csv`, 9
-períodos desde nov-2021, cada uno con la declaración que lo respalda). No son mediciones: clasifican los datos. Las fases
-se actualizan a mano: cada período tiene un `hasta` (para la fase actual, el último mes verificado, hoy nov-2026). Los
-meses posteriores quedan 'Sin clasificar' en lugar de suponer que la fase sigue, y el test `assert_fases_enso_al_dia`
-avisa que hay que actualizar el catálogo. **Responsable de mantenerlo:** el mismo responsable del dataset.
+Además hay dos tablas de referencia que cargamos como seeds de dbt y están versionadas en el repo:
 
-**Recorrido.**
-- **Bronze** (Delta Lake en MinIO, `s3://grupo06/bronze/clima_sidney`): la respuesta de la API tal como llega, con los nombres
-  originales de las variables, más la fuente (`archive_era5` / `historical_forecast`) y el momento de ingesta. Está versionado:
-  cada carga es una versión y se puede leer el estado de cualquier día pasado (time travel).
-- **Silver** (dbt, DuckDB): un registro por día, tipado, sin duplicados, con nombres en español y unidades explícitas.
-  Se descarta `rain_sum` (no comparable entre fuentes), se normaliza la dirección del viento y se agregan la estación del año y si fue día lluvioso.
-- **Gold** (dbt → PostgreSQL `warehouse.grupo06`): `fct_clima_mensual` (un registro por mes, con anomalías contra 2022-2025
-  y la fase de El Niño / La Niña)
-  y `feat_clima_diario` (indicadores por día), más cuatro agregados chicos que lee el tablero (`agg_estacion_lluvia`,
-  `agg_dias_sin_lluvia`, `agg_anio_a_la_fecha`, `agg_fase_enso`). Es lo que consulta el tablero de Metabase.
+- `codigos_wmo.csv`: qué significa cada código del estado del tiempo.
+- `fases_enso.csv`: en qué períodos hubo El Niño, La Niña o fase neutral, según las declaraciones de la Oficina de
+  Meteorología de Australia (9 períodos desde noviembre de 2021).
 
-**Linaje** (no dibujado a mano: sale del `manifest.json` que genera dbt, con `python docs/generar_linaje.py`;
-el grafo interactivo está en `dbt docs generate` → `dbt/target/index.html`, pestaña *Lineage*):
+Estas dos tablas no son mediciones, sirven para clasificar los datos. El catálogo de El Niño se actualiza a mano: el
+último período llega hasta noviembre de 2026. Si aparece un mes que el catálogo no cubre, queda como "Sin clasificar"
+y el test `assert_fases_enso_al_dia` avisa que hay que actualizarlo. Lo mantiene el responsable del dataset.
+
+Recorrido de los datos:
+
+1. **Bronze**: tabla Delta en MinIO (`s3://grupo06/bronze/clima_sidney`). Es la respuesta de la API tal cual llega,
+   más la fuente y la hora de carga. Cada carga queda como una versión nueva, así que se puede ver cómo estaba la tabla
+   en cualquier momento.
+2. **Silver** (dbt sobre DuckDB): un registro por día, con tipos correctos, sin duplicados y con nombres en español.
+   Acá descartamos `rain_sum` porque no significa lo mismo en las dos APIs, corregimos la dirección del viento y
+   agregamos la estación del año y si el día fue lluvioso.
+3. **Gold** (dbt, publicado en PostgreSQL, esquema `warehouse.grupo06`): `fct_clima_mensual` (un registro por mes, con
+   la anomalía respecto de 2022-2025 y la fase de El Niño), `feat_clima_diario` (indicadores por día) y cuatro tablas
+   chicas para el tablero (`agg_estacion_lluvia`, `agg_dias_sin_lluvia`, `agg_anio_a_la_fecha`, `agg_fase_enso`).
+   Metabase lee de acá.
+
+El linaje lo genera dbt a partir de su `manifest.json` (con `python docs/generar_linaje.py`). La versión interactiva
+está en `dbt docs generate`, en la pestaña Lineage.
 
 ![Linaje generado desde el manifest de dbt](capturas/linaje_dbt.png)
 
-## 3 · Diccionario de datos
+## 3. Diccionario de datos
 
-### `fct_clima_mensual` — un registro por mes
+### `fct_clima_mensual` (un registro por mes)
 
-| Columna | Tipo | Significado | Ejemplo |
+| Columna | Tipo | Qué es | Ejemplo |
 |---|---|---|---|
-| `mes` | fecha | Mes resumido, representado por su primer día | 2026-03-01 |
-| `anio` | entero | Año del mes | 2026 |
+| `mes` | fecha | Primer día del mes | 2026-03-01 |
+| `anio` | entero | Año | 2026 |
 | `mes_numero` | entero | Número de mes (1 = enero) | 3 |
 | `estacion` | texto | Estación del hemisferio sur: Verano (dic-feb), Otoño (mar-may), Invierno (jun-ago), Primavera (sep-nov) | Otoño |
-| `dias_con_datos` | entero | Días del mes con datos | 31 |
+| `dias_con_datos` | entero | Días del mes que tienen datos | 31 |
 | `dias_del_mes` | entero | Días que tiene el mes en el calendario | 31 |
-| `mes_completo` | booleano | Si tiene todos sus días. **Los meses incompletos (el mes en curso) no se comparan en totales** | true |
-| `temperatura_media_c` | decimal | Temperatura media del mes en °C: promedio de las medias diarias (cada media diaria es el promedio de 24 horas) | 21.4 |
-| `maxima_promedio_c` | decimal | Promedio de las máximas diarias, °C: qué tan cálidas fueron las tardes | 25.1 |
-| `minima_promedio_c` | decimal | Promedio de las mínimas diarias, °C: qué tan frescas fueron las noches | 17.9 |
-| `maxima_absoluta_c` | decimal | La temperatura más alta del mes, °C | 33.6 |
-| `minima_absoluta_c` | decimal | La temperatura más baja del mes, °C | 13.2 |
-| `anomalia_temperatura_c` | decimal | Cuántos °C más cálido (+) o más frío (−) fue el mes que el promedio de ese mismo mes en 2022-2025 | +0.8 |
-| `lluvia_total_mm` | decimal | Lluvia acumulada en el mes, en milímetros (1 mm = 1 litro por m²) | 142.3 |
-| `lluvia_referencia_mm` | decimal | Lluvia promedio de ese mismo mes en 2022-2025: lo "normal" | 118.0 |
-| `dias_con_lluvia` | entero | Días con 1 mm o más (criterio del Bureau of Meteorology) | 12 |
+| `mes_completo` | booleano | Si el mes tiene todos sus días. El mes en curso da false y no conviene compararlo en totales | true |
+| `temperatura_media_c` | decimal | Promedio de las temperaturas medias diarias, en °C | 21.4 |
+| `maxima_promedio_c` | decimal | Promedio de las máximas diarias, en °C | 25.1 |
+| `minima_promedio_c` | decimal | Promedio de las mínimas diarias, en °C | 17.9 |
+| `maxima_absoluta_c` | decimal | La temperatura más alta del mes, en °C | 33.6 |
+| `minima_absoluta_c` | decimal | La temperatura más baja del mes, en °C | 13.2 |
+| `anomalia_temperatura_c` | decimal | Diferencia con el promedio del mismo mes en 2022-2025. Positivo = más cálido | 0.8 |
+| `lluvia_total_mm` | decimal | Lluvia del mes en mm (1 mm = 1 litro por m²) | 142.3 |
+| `lluvia_referencia_mm` | decimal | Lluvia promedio del mismo mes en 2022-2025 | 118.0 |
+| `dias_con_lluvia` | entero | Días con 1 mm o más (es el criterio que usa la Oficina de Meteorología de Australia) | 12 |
 | `dias_de_calor_30c` | entero | Días con máxima de 30 °C o más | 2 |
-| `dias_con_tormenta` | entero | Días cuyo estado predominante fue tormenta eléctrica. **Antes de 2026 siempre es 0** (ERA5 no codifica tormentas) | 3 |
-| `rafaga_maxima_kmh` | decimal | Ráfaga de viento más fuerte del mes, km/h | 72.7 |
-| `radiacion_solar_media_mj_m2` | decimal | Energía solar diaria promedio, MJ/m²: meses más o menos soleados | 21.5 |
-| `fase_enso` | texto | Fase de El Niño / La Niña vigente el día 15 del mes según la Oficina de Meteorología de Australia: 'La Niña' (suele traer más lluvia y días más frescos en el este de Australia), 'El Niño' (menos lluvia y más calor), 'Neutral', o 'Sin clasificar' si el catálogo no cubre el mes. Es una clasificación externa, no una medición | La Niña |
-| `fuente_del_dato` | texto | 'ERA5 (reanálisis)' hasta 2025; 'Historical Forecast (modelo)' desde 2026 | ERA5 (reanálisis) |
+| `dias_con_tormenta` | entero | Días con tormenta eléctrica como estado del día. Antes de 2026 siempre da 0 porque ERA5 no codifica tormentas | 3 |
+| `rafaga_maxima_kmh` | decimal | La ráfaga de viento más fuerte del mes, en km/h | 72.7 |
+| `radiacion_solar_media_mj_m2` | decimal | Radiación solar diaria promedio, en MJ/m² | 21.5 |
+| `fase_enso` | texto | Fase vigente el día 15 del mes: La Niña, El Niño, Neutral o Sin clasificar. Es una clasificación externa | La Niña |
+| `fuente_del_dato` | texto | ERA5 (reanálisis) hasta 2025, Historical Forecast (modelo) desde 2026 | ERA5 (reanálisis) |
 
-### `feat_clima_diario` — un registro por día (features)
+### `feat_clima_diario` (un registro por día)
 
-Cada fila es lo que se sabe **al cierre del día `fecha`**; ninguna columna usa días posteriores.
+Cada fila usa solo información disponible al cierre de ese día. Ninguna columna mira días posteriores.
 
-| Columna | Tipo | Significado | Ejemplo |
+| Columna | Tipo | Qué es | Ejemplo |
 |---|---|---|---|
-| `fecha` | fecha | Día local de Sídney | 2026-03-15 |
-| `temp_media_c` | decimal | Temperatura media del día, °C | 22.1 |
-| `lluvia_mm` | decimal | Lluvia caída ese día, en mm (valor base, sin ventana). Sirve para comparar años en el mismo tramo de días | 4.2 |
-| `temp_media_movil_7d_c` | decimal | Promedio de la temperatura media de los últimos 7 días (incluye el día) | 21.6 |
-| `temp_media_movil_30d_c` | decimal | Ídem, últimos 30 días | 22.8 |
-| `lluvia_acumulada_7d_mm` | decimal | Lluvia total de los últimos 7 días, mm | 18.4 |
-| `lluvia_acumulada_30d_mm` | decimal | Lluvia total de los últimos 30 días, mm | 96.0 |
-| `dias_en_ventana_7d` | entero | Días con datos dentro de la ventana de 7 días (7 = completa; menos al inicio de la serie) | 7 |
-| `variacion_temp_vs_dia_anterior_c` | decimal | Temperatura media de hoy menos la de ayer, °C (+ = se calentó) | −1.3 |
-| `amplitud_termica_c` | decimal | Máxima menos mínima del día, °C | 7.5 |
-| `desvio_vs_media_30d_c` | decimal | Cuánto se aparta el día de su promedio de 30 días, °C | −0.7 |
-| `dias_desde_ultima_lluvia` | entero | Días desde el último día con ≥ 1 mm (0 = llovió hoy; vacío si no llovió desde el inicio de la serie) | 3 |
-| `fuente` | texto | archive_era5 / historical_forecast | historical_forecast |
+| `fecha` | fecha | Día, en horario de Sídney | 2026-03-15 |
+| `temp_media_c` | decimal | Temperatura media del día, en °C | 22.1 |
+| `lluvia_mm` | decimal | Lluvia del día, en mm | 4.2 |
+| `temp_media_movil_7d_c` | decimal | Promedio de la temperatura media de los últimos 7 días, incluido el día | 21.6 |
+| `temp_media_movil_30d_c` | decimal | Lo mismo para 30 días | 22.8 |
+| `lluvia_acumulada_7d_mm` | decimal | Lluvia total de los últimos 7 días, en mm | 18.4 |
+| `lluvia_acumulada_30d_mm` | decimal | Lluvia total de los últimos 30 días, en mm | 96.0 |
+| `dias_en_ventana_7d` | entero | Cuántos días con datos hay en la ventana de 7 días (menos de 7 solo al principio de la serie) | 7 |
+| `variacion_temp_vs_dia_anterior_c` | decimal | Temperatura media de hoy menos la de ayer, en °C | -1.3 |
+| `amplitud_termica_c` | decimal | Máxima menos mínima del día, en °C | 7.5 |
+| `desvio_vs_media_30d_c` | decimal | Diferencia entre el día y su promedio de 30 días, en °C | -0.7 |
+| `dias_desde_ultima_lluvia` | entero | Días desde el último día con 1 mm o más (0 = llovió ese día) | 3 |
+| `fuente` | texto | archive_era5 o historical_forecast | historical_forecast |
 
-### Agregados del tablero (`agg_*`) — una tabla por gráfico
+### Tablas del tablero (`agg_*`)
 
-Salen de las dos tablas anteriores, se recalculan en cada corrida y tienen tests (clave única y no nula, valores permitidos).
-"Día con lluvia" = cayó ≥ 1 mm; "lo normal" = promedio 2022-2025.
+Salen de las dos tablas anteriores y se recalculan en cada corrida. Cada una alimenta un gráfico. "Día con lluvia"
+es un día con 1 mm o más, y "lo normal" es el promedio de 2022-2025.
 
 | Tabla | Un registro por | Columnas principales |
 |---|---|---|
-| `agg_estacion_lluvia` | estación del año (4) | `temp_media_dia_seco_c`, `temp_media_dia_con_lluvia_c`, `temp_media_estacion_c`, `amplitud_dia_seco_c`, `amplitud_dia_con_lluvia_c`, `dias_secos`, `dias_con_lluvia` |
-| `agg_dias_sin_lluvia` | días desde la última lluvia (0 a "7 o más") | `amplitud_media_c`, `temp_vs_media_30d_c` (°C sobre la media de 30 días), `dias` |
-| `agg_anio_a_la_fecha` | año, en el mismo tramo 1/1 → último día cargado | `tramo_hasta`, `dias`, `temp_media_tramo_c`, `anomalia_temperatura_c` (vs. 2022-2025), `lluvia_tramo_mm` |
-| `agg_fase_enso` | fase de El Niño / La Niña (3) | `meses`, `anomalia_temperatura_c`, `lluvia_vs_normal_pct` (% de lluvia sobre lo normal) |
+| `agg_estacion_lluvia` | estación (4) | temperatura media y amplitud en días secos y con lluvia, cantidad de días de cada tipo |
+| `agg_dias_sin_lluvia` | días desde la última lluvia (0 a "7 o más") | amplitud media, diferencia con la media de 30 días, cantidad de días |
+| `agg_anio_a_la_fecha` | año, comparado en el mismo tramo (1/1 al último día cargado) | temperatura media del tramo, anomalía, lluvia del tramo |
+| `agg_fase_enso` | fase de El Niño (3) | meses, anomalía de temperatura, lluvia respecto de lo normal en % |
 
-### Campos del origen con significado dudoso
-- **`weather_code`** (bronze/silver): Open-Meteo lo describe como "el código WMO más severo del día", pero no documenta el
-  umbral. Asumimos que es el estado predominante y por eso, en gold, solo lo usamos agregado en categorías.
-- **`apparent_temperature_mean`**: sensación térmica según Open-Meteo; la fórmula exacta no está documentada en la API.
-  Asumimos la temperatura aparente de Steadman (temperatura + humedad + viento). No se usa en gold.
-- **`precipitation_hours`**: horas con precipitación "medible"; el umbral no está documentado. Hay 17 días con lluvia > 0 y 0 horas.
+### Campos de la fuente que no están del todo claros
 
-## 4 · Clasificación de sensibilidad
+- `weather_code`: Open-Meteo dice que es el código más severo del día pero no explica el criterio. Lo tomamos como el
+  estado del día y en gold solo lo usamos agrupado en categorías.
+- `apparent_temperature_mean` (sensación térmica): la API no documenta la fórmula. No lo usamos en gold.
+- `precipitation_hours`: no está documentado desde qué cantidad cuenta una hora como lluviosa. Encontramos 17 días con
+  lluvia mayor a 0 y 0 horas de lluvia.
 
-**Clasificación: Público.** Fundamento:
-- **No hay datos personales** (Ley 25.326 de Argentina, GDPR): no hay personas, identificadores, ubicaciones de individuos
-  ni nada que permita identificar a alguien, directa o indirectamente. Las coordenadas son de un punto de grilla meteorológico, no de una persona.
-- **El origen es público y abierto**: cualquiera obtiene los mismos datos con la misma consulta.
-- **Nada de lo derivado agrega sensibilidad**: promedios y acumulados de variables físicas.
+## 4. Clasificación de sensibilidad
 
-Lo único sensible del proyecto **no es el dataset sino las credenciales** de MinIO y PostgreSQL del grupo: viven en un `.env`
-fuera del repositorio (`.gitignore`), se generan desde las variables que inyecta JupyterHub y nunca se escriben en el código.
-Limitación conocida: en el Airflow compartido ese `.env` queda dentro de la carpeta de DAGs del grupo, legible por el proceso de
-Airflow (y por tanto, en teoría, por DAGs de otros grupos). Es un riesgo de la infraestructura compartida; en producción se usaría
-un gestor de secretos (Connections/Variables de Airflow o un vault).
+Clasificación: **público**.
 
-## 5 · Calidad y garantías
+No hay datos personales: son mediciones del clima en un punto de una grilla, sin ninguna persona ni nada que permita
+identificar a alguien (ni por la Ley 25.326 ni por el GDPR). Además, cualquiera puede obtener exactamente los mismos
+datos haciendo la misma consulta a la API, y lo que calculamos (promedios, acumulados) no agrega sensibilidad.
 
-**Qué se verifica automáticamente** (58 tests de dbt en cada corrida del DAG; si alguno falla, la gold **no se publica**; los dos avisos —frescura y catálogo ENSO— no bloquean):
-- Un registro por día (`unique`, `not_null`) y **serie continua sin huecos**.
-- Temperaturas entre −5 y 50 °C, mínima ≤ media ≤ máxima, lluvia entre 0 y 400 mm/día, dirección del viento 0-359.
-- Valores permitidos en `fuente`, `estacion`, `categoria`; todo `codigo_wmo` existe en el catálogo.
-- Un mes no tiene más días que el calendario; los features no usan datos futuros (se recalculan y se comparan).
-- En la ingesta: estructura de la respuesta, fechas dentro del rango pedido, unidad °C (si no, no se escribe nada).
+Lo que sí hay que cuidar son las credenciales de MinIO y PostgreSQL del grupo. Están en un archivo `.env` que no se sube
+al repositorio y que se genera a partir de las variables del JupyterHub. Una limitación: en el Airflow compartido ese
+`.env` está dentro de nuestra carpeta de DAGs, y en teoría otro proceso del mismo Airflow podría leerlo. En un entorno
+real lo pondríamos en las Connections de Airflow o en un gestor de secretos.
 
-**Frescura.** El DAG corre todos los días a las 06:00 (Argentina) y trae el día anterior de Sídney. Normalmente el último dato es de **ayer**. Si el último día cargado tiene más de 3 días de atraso, el test `assert_dato_fresco` da un **aviso** en el log de `dbt_test` (no frena la publicación: el dato sigue siendo correcto, solo viejo).
+## 5. Calidad y garantías
 
-**Limitaciones y huecos conocidos.**
-- **Cambio de fuente el 2026-01-01.** ERA5 (reanálisis) y Historical Forecast (modelo) no son idénticos. En diciembre de 2025,
-  donde tenemos las dos, la temperatura media y la lluvia coinciden exactamente, pero la máxima difiere en promedio 0,14 °C (hasta 1 °C)
-  y el código de tiempo cambia de vocabulario. Comparando las dos fuentes en todo 2023-2025 (los años en que ambas tienen datos),
-  la media y la lluvia siguen siendo idénticas, pero Historical Forecast da en promedio la **máxima +0,54 °C** y la **mínima +1,24 °C**
-  más altas. Por eso en 2026 la temperatura media es comparable con años anteriores, pero la amplitud térmica y el conteo de
-  días de calor tienen un sesgo conocido.
-- **Los datos de 2026 son de modelo, no observaciones.** Pueden diferir de lo que midió una estación del Bureau of Meteorology.
-  ERA5 publicará más adelante el reanálisis de 2026; hoy **no** reemplazamos esos días (posible mejora: reprocesar con ERA5 cuando esté).
-- **Un punto de grilla, no una estación.** Representa un área de varios km alrededor del punto; no es "el aeropuerto" ni "Observatory Hill".
-- **`dias_con_tormenta` antes de 2026 es 0** por la fuente, no porque no haya habido tormentas.
-- **La referencia de anomalías tiene solo 4 años** (2022-2025), no una climatología de 30 años: sirve para comparar meses, no para afirmar tendencias climáticas.
-- **El mes en curso está incompleto**: usar `mes_completo` para filtrarlo.
-- Hasta la fecha **no hubo huecos**: la serie es continua desde 2022-01-01 (lo verifica `assert_serie_sin_huecos`).
+En cada corrida del DAG se ejecutan 58 tests de dbt. Si alguno falla, la gold no se publica y el tablero sigue con la
+versión anterior. Dos de esos tests son solo avisos y no frenan nada (frescura del dato y catálogo de El Niño al día).
+Lo que verifican:
 
-**Qué no detecta ningún test**: que la API devuelva valores plausibles pero incorrectos (un día con 22 °C cuando fueron 25 °C),
-que el dato quede viejo si el **DAG entero** deja de correr (el aviso de frescura vive dentro del propio DAG: si el DAG no corre, nadie lo ve; haría falta un monitor externo, p. ej. una alerta de Grafana), o que la definición de "día lluvioso" no sea la que el usuario necesita.
+- Que haya un registro por día y que la serie no tenga huecos.
+- Que las temperaturas estén entre −5 y 50 °C, que la mínima no supere a la máxima, que la lluvia esté entre 0 y
+  400 mm por día y que la dirección del viento esté entre 0 y 359.
+- Que las columnas con valores fijos (fuente, estación, categoría) tengan valores válidos y que todos los códigos del
+  tiempo existan en el catálogo.
+- Que ningún mes tenga más días que el calendario y que los indicadores no usen datos futuros.
 
-## 6 · Licencia y uso
+La ingesta además revisa la respuesta de la API antes de escribir: que tenga la estructura esperada, que las fechas
+estén dentro del rango pedido y que la temperatura venga en °C. Si algo no cierra, no se escribe nada.
 
-- **Licencia del origen:** los datos de Open-Meteo se distribuyen bajo **CC BY 4.0**. Hay que **atribuir**: *"Weather data by Open-Meteo.com"*,
-  con enlace a open-meteo.com. ERA5 es de Copernicus/ECMWF y también exige atribución.
-- **Uso de la API:** la API gratuita es para **uso no comercial** y tiene límite de pedidos (≈10.000 por día); nuestro pipeline hace 1 pedido por día.
-- **Se puede:** usarlo para análisis, enseñanza e investigación, compartirlo y derivar productos, citando la fuente.
-- **No se debe:** presentarlo como observaciones oficiales de una estación meteorológica; usarlo para decisiones de seguridad (alertas, aviación)
-  —para eso está el Bureau of Meteorology—; usarlo comercialmente sin una suscripción de Open-Meteo.
-- **El código** del pipeline es del grupo06, con fines académicos.
+Frescura: el DAG corre todos los días a las 06:00 de Argentina y trae el día anterior de Sídney, así que lo normal es
+que el último dato sea de ayer. Si el último día cargado tiene más de 3 días de atraso, `assert_dato_fresco` deja un
+aviso en el log.
+
+Limitaciones que conocemos:
+
+- **Cambio de fuente en 2026.** ERA5 y Historical Forecast no dan lo mismo. Las comparamos en 2023-2025, donde tenemos
+  las dos: la temperatura media y la lluvia coinciden, pero Historical Forecast da la máxima 0,54 °C más alta y la
+  mínima 1,24 °C más alta en promedio. Por eso las medias de 2026 se pueden comparar con años anteriores, pero la
+  amplitud térmica y los días de calor de 2026 tienen un sesgo.
+- **Los datos de 2026 salen de un modelo**, no de una estación. Cuando ERA5 publique 2026 se podría reprocesar ese año.
+- Es un punto de grilla que representa un área de varios km, no una estación puntual como el aeropuerto.
+- `dias_con_tormenta` vale 0 antes de 2026 por cómo viene la fuente, no porque no haya habido tormentas.
+- "Lo normal" se calcula con solo 4 años. Sirve para comparar meses entre sí, no para hablar de tendencias climáticas.
+- El mes en curso está incompleto; para comparar meses hay que filtrar con `mes_completo`.
+- Hasta ahora la serie no tiene huecos desde el 2022-01-01.
+
+Hay cosas que ningún test detecta: un valor de la API que parece razonable pero está mal, que el DAG entero deje de
+correr (el aviso de frescura corre dentro del DAG, así que en ese caso tampoco aparece) o que la definición de día
+lluvioso (1 mm) no sea la que necesita quien use los datos.
+
+## 6. Licencia y uso
+
+Los datos de Open-Meteo tienen licencia CC BY 4.0, así que hay que citar la fuente ("Weather data by Open-Meteo.com",
+con enlace a open-meteo.com). ERA5 es de Copernicus/ECMWF y también pide atribución. La API gratuita es para uso no
+comercial y tiene un límite de unos 10.000 pedidos por día; nuestro pipeline hace uno por día.
+
+Se puede usar para análisis, docencia e investigación, compartirlo y armar otros productos con los datos, siempre
+citando la fuente. No se debería presentar como medición oficial de una estación, ni usar para decisiones de
+seguridad como alertas o aviación (para eso está la Oficina de Meteorología de Australia), ni usar con fines
+comerciales sin una suscripción de Open-Meteo.
+
+El código del pipeline es del grupo 06 y tiene fines académicos.
